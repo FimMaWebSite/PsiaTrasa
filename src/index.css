@@ -568,6 +568,40 @@ a:hover {
   gap: 0.5rem;
 }
 
+/* Category Quick Tab Switcher */
+.category-tabs {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  scrollbar-width: none; /* Firefox */
+}
+.category-tabs::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+.category-tab {
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-app);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.category-tab:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.category-tab.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
 /* Mobile responsive layouts */
 @media (max-width: 768px) {
   .app-layout {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Place, SafetyAlert, LostDog, User } from '../types';
 import { 
-  X, Bone, Star, MessageSquare, Users, AlertTriangle, Check, Search, Trash2
+  X, PawPrint, MessageSquare, Users, AlertTriangle, Check, Search, Trash2, ExternalLink
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -40,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAuth,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryTab, setCategoryTab] = useState<'all' | 'enclosure' | 'park' | 'water' | 'route'>('all');
   const [reviewComment, setReviewComment] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   const [dogName, setDogName] = useState(currentUser.dogName || '');
@@ -51,13 +52,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Type Translation helpers
   const translateType = (type: string) => {
     switch (type) {
-      case 'park': return 'Park / Las';
-      case 'enclosure': return 'Wybieg ogrodzony';
-      case 'water': return 'Dostęp do wody';
-      case 'cafe': return 'Dog-Friendly Cafe';
-      case 'vet': return 'Weterynarz 24/7';
-      case 'route': return 'Trasa spacerowa';
-      default: return 'Miejsce';
+      case 'park': return '🌳 Park / Las';
+      case 'enclosure': return '🧱 Wybieg ogrodzony';
+      case 'water': return '💧 Dostęp do wody';
+      case 'cafe': return '☕ Dog Cafe';
+      case 'vet': return '🩺 Weterynarz';
+      case 'route': return '🥾 Trasa spacerowa';
+      default: return '📍 Miejsce';
     }
   };
 
@@ -80,11 +81,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return '';
   };
 
-  // Filter places based on search
-  const filteredPlaces = places.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter places based on search & category tab
+  const filteredPlaces = places.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    if (categoryTab === 'all') return true;
+    if (categoryTab === 'enclosure') return p.type === 'enclosure';
+    if (categoryTab === 'park') return p.type === 'park';
+    if (categoryTab === 'water') return p.type === 'water';
+    if (categoryTab === 'route') return p.type === 'route';
+    return true;
+  });
 
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,16 +127,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return Math.round((sum / place.reviews.length) * 10) / 10;
   };
 
-  const renderBones = (rating: number, clickable = false, onRate?: (r: number) => void) => {
+  const renderPaws = (rating: number, clickable = false, onRate?: (r: number) => void) => {
     return (
       <div className="bone-rating">
         {[1, 2, 3, 4, 5].map((i) => (
-          <Bone
+          <PawPrint
             key={i}
             size={18}
             className="bone-icon"
-            color={i <= rating ? '#f59e0b' : '#cbd5e1'}
-            fill={i <= rating ? '#f59e0b' : 'transparent'}
+            color={i <= rating ? '#10b981' : '#cbd5e1'}
+            fill={i <= rating ? '#10b981' : 'transparent'}
             onClick={() => clickable && onRate && onRate(i)}
           />
         ))}
@@ -163,8 +173,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
               {selectedPlace.reviews.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem' }}>
-                  <Star size={16} fill="#f59e0b" color="#f59e0b" />
-                  <strong>{getAverageRating(selectedPlace)}</strong> ({selectedPlace.reviews.length} opinii)
+                  <PawPrint size={16} fill="#10b981" color="#10b981" />
+                  <strong>{getAverageRating(selectedPlace)}</strong> ({selectedPlace.reviews.length} łapek)
                 </div>
               )}
             </div>
@@ -175,16 +185,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {selectedPlace.description}
             </p>
 
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${selectedPlace.lat},${selectedPlace.lng}`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', width: '100%' }}
+              >
+                <ExternalLink size={14} /> Nawiguj w Google Maps
+              </a>
+            </div>
+
             {/* If it is a Route */}
             {selectedPlace.type === 'route' && (
               <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center', gap: '0.5rem', backgroundColor: 'var(--primary-light)', border: 'none' }}>
                 <div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Długość</div>
-                  <strong style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>{selectedPlace.distance} km</strong>
+                  <strong style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>📏 {selectedPlace.distance} km</strong>
                 </div>
                 <div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Czas</div>
-                  <strong style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>{selectedPlace.duration} min</strong>
+                  <strong style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>⏱️ {selectedPlace.duration} min</strong>
                 </div>
                 <div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Trudność</div>
@@ -203,6 +225,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {t === 'cień' && '🌲 Cień'}
                     {t === 'oświetlenie' && '💡 Oświetlenie'}
                     {t === 'całodobowy' && '⏰ 24/7'}
+                    {t === 'las' && '🌳 Las'}
+                    {t === 'smycz' && '🦮 Smycz'}
                   </span>
                 ))}
               </div>
@@ -298,7 +322,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <form onSubmit={handleReviewSubmit} className="card" style={{ marginBottom: '1.25rem', backgroundColor: 'var(--bg-app)' }}>
                 <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span className="form-label" style={{ marginBottom: 0 }}>Ocena:</span>
-                  {renderBones(reviewRating, true, setReviewRating)}
+                  {renderPaws(reviewRating, true, setReviewRating)}
                 </div>
                 <div className="form-group">
                   <textarea 
@@ -320,7 +344,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div key={r.id} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
                       <strong style={{ fontSize: '0.9rem' }}>👤 {r.userName}</strong>
-                      {renderBones(r.rating)}
+                      {renderPaws(r.rating)}
                     </div>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.4' }}>{r.comment}</p>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -402,8 +426,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* VIEW 4: DEFAULT SEARCH & LIST OF PLACES */}
         {!isOpen && (
           <div>
+            {/* Beautiful Welcome Hero Banner */}
+            <div className="card" style={{ 
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.95) 100%)', 
+              color: 'white', 
+              border: 'none', 
+              marginBottom: '1.25rem',
+              padding: '1.25rem',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{ position: 'relative', zIndex: 10 }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.4rem' }}>Odkryj najlepsze psie trasy! 🐕</h3>
+                <p style={{ fontSize: '0.85rem', opacity: 0.9, lineHeight: 1.4 }}>
+                  Przeglądaj wybiegi, ścieżki leśne oraz bezpieczne miejsca na spacery. Zgłaszaj alerty i melduj swojego pupila na trasach!
+                </p>
+              </div>
+              <div style={{ 
+                position: 'absolute', 
+                right: '-10px', 
+                bottom: '-20px', 
+                opacity: 0.15,
+                transform: 'rotate(-10deg)',
+                color: 'white'
+              }}>
+                <PawPrint size={100} fill="white" />
+              </div>
+            </div>
+
             {/* Search Bar */}
-            <div className="form-group" style={{ position: 'relative' }}>
+            <div className="form-group" style={{ position: 'relative', marginBottom: '0.75rem' }}>
               <input 
                 type="text" 
                 className="form-input" 
@@ -413,6 +465,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 style={{ paddingLeft: '2.5rem' }}
               />
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
+            </div>
+
+            {/* Quick Category Tab Switcher */}
+            <div className="category-tabs">
+              <button className={`category-tab ${categoryTab === 'all' ? 'active' : ''}`} onClick={() => setCategoryTab('all')}>Wszystkie</button>
+              <button className={`category-tab ${categoryTab === 'enclosure' ? 'active' : ''}`} onClick={() => setCategoryTab('enclosure')}>Wybiegi</button>
+              <button className={`category-tab ${categoryTab === 'park' ? 'active' : ''}`} onClick={() => setCategoryTab('park')}>Parki/Lasy</button>
+              <button className={`category-tab ${categoryTab === 'water' ? 'active' : ''}`} onClick={() => setCategoryTab('water')}>Z wodą</button>
+              <button className={`category-tab ${categoryTab === 'route' ? 'active' : ''}`} onClick={() => setCategoryTab('route')}>Trasy</button>
             </div>
 
             {/* Info Alerts Section */}
@@ -450,7 +511,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Places list */}
             <div>
-              <h4 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Wszystkie lokalizacje ({filteredPlaces.length})</h4>
+              <h4 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Wybrane miejsca ({filteredPlaces.length})</h4>
               
               {filteredPlaces.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', marginTop: '2rem' }}>Brak wyników wyszukiwania.</p>
@@ -469,7 +530,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </span>
                         {place.reviews.length > 0 && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.8rem', fontWeight: 600 }}>
-                            ⭐ {getAverageRating(place)}
+                            <PawPrint size={14} fill="#10b981" color="#10b981" /> {getAverageRating(place)}
                           </div>
                         )}
                       </div>

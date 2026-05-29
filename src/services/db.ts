@@ -15,7 +15,7 @@ const INITIAL_PLACES: Place[] = [
     lat: 51.0864,
     lng: 16.9833,
     type: 'park',
-    tags: ['cień', 'woda'],
+    tags: ['cień', 'woda', 'las'],
     reviews: [
       {
         id: 'r1',
@@ -140,7 +140,7 @@ const INITIAL_PLACES: Place[] = [
       [51.0998, 17.0945],
       [51.1009, 17.1050]
     ],
-    tags: ['woda', 'cień'],
+    tags: ['woda', 'cień', 'las', 'smycz'],
     reviews: [
       {
         id: 'r6',
