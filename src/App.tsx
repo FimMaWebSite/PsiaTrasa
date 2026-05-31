@@ -183,12 +183,20 @@ export default function App() {
       const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
           const user = session.user;
-          // Fetch profile details
-          const { data: profile } = await client
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
+          // Fetch profile details gracefully
+          let profile: any = null;
+          try {
+            const { data, error } = await client
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single();
+            if (!error) {
+              profile = data;
+            }
+          } catch (e) {
+            console.warn('Profiles table load failed, using user metadata:', e);
+          }
 
           const loggedInUser: User = {
             username: profile?.username || user.user_metadata?.username || user.email?.split('@')[0] || 'User',
