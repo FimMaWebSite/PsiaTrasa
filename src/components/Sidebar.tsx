@@ -24,6 +24,7 @@ interface SidebarProps {
   setSearchTerm: (val: string) => void;
   categoryTab: 'all' | 'enclosure' | 'park' | 'water' | 'route';
   setCategoryTab: (val: 'all' | 'enclosure' | 'park' | 'water' | 'route') => void;
+  onOpenCoffeeModal: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setSearchTerm,
   categoryTab,
   setCategoryTab,
+  onOpenCoffeeModal,
 }) => {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
@@ -555,6 +557,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ))}
                 </div>
               )}
+            </div>
+            
+            {/* Postaw kawkę (Donation widget) */}
+            <div className="card" style={{ 
+              marginTop: '1.5rem', 
+              backgroundColor: 'rgba(245, 158, 11, 0.08)', 
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              textAlign: 'center',
+              padding: '1.25rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>☕🐾</div>
+              <strong style={{ display: 'block', fontSize: '0.95rem', color: '#b45309', marginBottom: '0.35rem' }}>
+                Podoba Ci się PsiaTrasa?
+              </strong>
+              <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '0.75rem' }}>
+                Pomóż nam rozwijać mapę spacerów i utrzymać serwery, fundując wirtualną kawę!
+              </p>
+              <button 
+                type="button" 
+                className="btn" 
+                style={{ 
+                  backgroundColor: '#f59e0b', 
+                  color: 'white', 
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  width: '100%',
+                  border: 'none'
+                }}
+                onClick={onOpenCoffeeModal}
+              >
+                Postaw kawkę (np. 5 zł)
+              </button>
             </div>
           </div>
         )}

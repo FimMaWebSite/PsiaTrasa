@@ -5,7 +5,7 @@ import { Map } from './components/Map';
 import { Sidebar } from './components/Sidebar';
 import { Modal } from './components/Modal';
 import { 
-  Compass, MapPin, AlertTriangle, Sun, Moon, ShieldAlert, Plus, Check, RotateCcw, LogOut, LogIn
+  Compass, MapPin, AlertTriangle, Sun, Moon, ShieldAlert, Plus, Check, RotateCcw, LogOut, LogIn, Navigation
 } from 'lucide-react';
 
 export default function App() {
@@ -30,6 +30,12 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryTab, setCategoryTab] = useState<'all' | 'enclosure' | 'park' | 'water' | 'route'>('all');
+  const [isCoffeeModalOpen, setIsCoffeeModalOpen] = useState(false);
+  const [coffeeCount, setCoffeeCount] = useState(1);
+  const [coffeeName, setCoffeeName] = useState('');
+  const [coffeeMessage, setCoffeeMessage] = useState('');
+  const [isCoffeeSuccess, setIsCoffeeSuccess] = useState(false);
+  const [triggerUserLocate, setTriggerUserLocate] = useState(0);
 
   // Auth User
   const [currentUser, setCurrentUser] = useState<User>({ username: 'Gość', isLoggedIn: false });
@@ -352,6 +358,22 @@ export default function App() {
           <span>PsiaTrasa</span>
         </div>
         <div className="header-actions">
+          <button 
+            className="btn btn-secondary btn-sm" 
+            style={{ 
+              backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+              color: '#d97706',
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              fontWeight: 600
+            }} 
+            onClick={() => {
+              setIsCoffeeSuccess(false);
+              setIsCoffeeModalOpen(true);
+            }}
+            title="Postaw nam kawkę!"
+          >
+            ☕ Postaw kawkę
+          </button>
           <button className="tool-btn" onClick={toggleTheme} style={{ width: '40px', height: '40px', boxShadow: 'none' }}>
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
@@ -424,10 +446,19 @@ export default function App() {
             activeFilters={activeFilters}
             searchTerm={searchTerm}
             categoryTab={categoryTab}
+            triggerUserLocate={triggerUserLocate}
           />
 
           {/* Map Control Buttons */}
           <div className="map-tools">
+            <button 
+              className="tool-btn" 
+              onClick={() => setTriggerUserLocate(prev => prev + 1)} 
+              title="Centruj na mnie (GPS)"
+              style={{ marginBottom: '0.25rem' }}
+            >
+              <Navigation size={20} />
+            </button>
             {isDrawingRoute ? (
               <>
                 <button 
@@ -484,6 +515,7 @@ export default function App() {
           setSearchTerm={setSearchTerm}
           categoryTab={categoryTab}
           setCategoryTab={setCategoryTab}
+          onOpenCoffeeModal={() => { setIsCoffeeSuccess(false); setIsCoffeeModalOpen(true); }}
         />
       </main>
 
@@ -677,6 +709,80 @@ export default function App() {
             <button type="submit" className="btn btn-primary">Zapisz trasę</button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal 7: Buy a Coffee (Monetization widget modal) */}
+      <Modal isOpen={isCoffeeModalOpen} onClose={() => setIsCoffeeModalOpen(false)} title="Postaw kawkę ☕">
+        {isCoffeeSuccess ? (
+          <div style={{ textAlign: 'center', padding: '1rem' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐕💖🎉</div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Dziękujemy pięknie!</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              {coffeeName ? `Dziękujemy, ${coffeeName}! ` : ''}Twój piesek wysyła radosne machnięcie ogonem! Twoje wsparcie pomaga nam utrzymać serwery i dodawać nowe trasy spacerowe. 🐾
+            </p>
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              style={{ marginTop: '1.5rem', width: '100%' }}
+              onClick={() => setIsCoffeeModalOpen(false)}
+            >
+              Zamknij
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={(e) => { e.preventDefault(); setIsCoffeeSuccess(true); }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '1.25rem' }}>
+              PsiaTrasa to darmowy projekt. Będzie nam niezmiernie miło, jeśli docenisz naszą pracę i postawisz nam wirtualną kawkę!
+            </p>
+            <div className="form-group">
+              <label className="form-label">Wybierz liczbę kaw</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                {[1, 3, 5].map(n => (
+                  <button
+                    type="button"
+                    key={n}
+                    className={`btn ${coffeeCount === n ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setCoffeeCount(n)}
+                    style={{ 
+                      padding: '0.75rem', 
+                      fontSize: '0.9rem', 
+                      fontWeight: 600,
+                      borderColor: coffeeCount === n ? 'transparent' : 'var(--border-color)',
+                      backgroundColor: coffeeCount === n ? 'var(--primary)' : 'var(--bg-app)'
+                    }}
+                  >
+                    {n} Kawa{n > 1 ? 'y' : ''} ({n * 5} zł)
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Twój podpis (opcjonalnie)</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={coffeeName} 
+                onChange={(e) => setCoffeeName(e.target.value)} 
+                placeholder="np. Kasia i Reksio" 
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Krótka wiadomość (opcjonalnie)</label>
+              <textarea 
+                className="form-textarea" 
+                value={coffeeMessage} 
+                onChange={(e) => setCoffeeMessage(e.target.value)} 
+                placeholder="Wpisz słowa wsparcia dla projektu..." 
+              />
+            </div>
+            <div className="modal-footer" style={{ padding: '1rem 0 0 0', borderTop: 'none' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsCoffeeModalOpen(false)}>Anuluj</button>
+              <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#f59e0b', color: 'white' }}>
+                Wspieraj ({coffeeCount * 5} zł)
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </>
   );

@@ -22,6 +22,7 @@ interface MapProps {
   activeFilters: string[];
   searchTerm: string;
   categoryTab: string;
+  triggerUserLocate: number;
 }
 
 export const Map: React.FC<MapProps> = ({
@@ -41,6 +42,7 @@ export const Map: React.FC<MapProps> = ({
   activeFilters,
   searchTerm,
   categoryTab,
+  triggerUserLocate,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -57,9 +59,9 @@ export const Map: React.FC<MapProps> = ({
       zoomControl: false,
     }).setView([51.1079, 17.0385], 13);
 
-    // Standard OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
+    // CartoDB Voyager tiles (better greens and contrast)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     }).addTo(map);
 
     // Zoom control at bottom right
@@ -105,6 +107,21 @@ export const Map: React.FC<MapProps> = ({
       }
     };
   }, []);
+
+  // Trigger GPS Centering from Parent Button
+  useEffect(() => {
+    if (triggerUserLocate === 0 || !mapRef.current) return;
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          mapRef.current?.flyTo([latitude, longitude], 15, { animate: true, duration: 1.5 });
+        },
+        () => alert('Błąd lokalizacji GPS lub brak uprawnień. Upewnij się, że lokalizacja w przeglądarce jest włączona.')
+      );
+    }
+  }, [triggerUserLocate]);
 
   // Handle map clicks (for adding spot or drawing routes)
   useEffect(() => {
@@ -308,19 +325,19 @@ export const Map: React.FC<MapProps> = ({
     if (!map) return;
 
     if (selectedPlace) {
-      map.setView([selectedPlace.lat, selectedPlace.lng], 15);
+      map.flyTo([selectedPlace.lat, selectedPlace.lng], 15, { animate: true, duration: 1.5 });
       const marker = itemRefs.current[selectedPlace.id];
       if (marker && marker instanceof L.Marker) {
         marker.openPopup();
       }
     } else if (selectedAlert) {
-      map.setView([selectedAlert.lat, selectedAlert.lng], 15);
+      map.flyTo([selectedAlert.lat, selectedAlert.lng], 15, { animate: true, duration: 1.5 });
       const marker = itemRefs.current[selectedAlert.id];
       if (marker && marker instanceof L.Marker) {
         marker.openPopup();
       }
     } else if (selectedLostDog) {
-      map.setView([selectedLostDog.lat, selectedLostDog.lng], 15);
+      map.flyTo([selectedLostDog.lat, selectedLostDog.lng], 15, { animate: true, duration: 1.5 });
       const marker = itemRefs.current[selectedLostDog.id];
       if (marker && marker instanceof L.Marker) {
         marker.openPopup();
