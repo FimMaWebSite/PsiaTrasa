@@ -23,6 +23,7 @@ interface MapProps {
   searchTerm: string;
   categoryTab: string;
   triggerUserLocate: number;
+  flyToTarget: { lat: number; lng: number } | null;
 }
 
 export const Map: React.FC<MapProps> = ({
@@ -43,6 +44,7 @@ export const Map: React.FC<MapProps> = ({
   searchTerm,
   categoryTab,
   triggerUserLocate,
+  flyToTarget,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -54,10 +56,10 @@ export const Map: React.FC<MapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Default center on Wrocław, Poland
+    // Default center on Poland
     const map = L.map(mapContainerRef.current, {
       zoomControl: false,
-    }).setView([51.1079, 17.0385], 13);
+    }).setView([52.0689, 19.4796], 6);
 
     // CartoDB Voyager tiles (better greens and contrast)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -344,6 +346,14 @@ export const Map: React.FC<MapProps> = ({
       }
     }
   }, [selectedPlace, selectedAlert, selectedLostDog]);
+
+  // Center on flyToTarget coordinate (global address searches)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && flyToTarget) {
+      map.flyTo([flyToTarget.lat, flyToTarget.lng], 13, { animate: true, duration: 1.5 });
+    }
+  }, [flyToTarget]);
 
   return <div id="map" ref={mapContainerRef} />;
 };

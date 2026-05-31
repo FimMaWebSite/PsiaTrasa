@@ -26,6 +26,7 @@ interface SidebarProps {
   setCategoryTab: (val: 'all' | 'enclosure' | 'park' | 'water' | 'route') => void;
   onOpenCoffeeModal: () => void;
   donations: CoffeeDonation[];
+  onSearchCityCoords?: (coords: { lat: number; lng: number }) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -50,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setCategoryTab,
   onOpenCoffeeModal,
   donations,
+  onSearchCityCoords,
 }) => {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
@@ -58,6 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [dogSize, setDogSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [dogTemperament, setDogTemperament] = useState<'friendly' | 'neutral' | 'reactive'>('friendly');
   const [showCheckInForm, setShowCheckInForm] = useState(false);
+  const [isSearchingCity, setIsSearchingCity] = useState(false);
 
   // Type Translation helpers
   const translateType = (type: string) => {
@@ -465,17 +468,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Search Bar */}
-            <div className="form-group" style={{ position: 'relative', marginBottom: '0.75rem' }}>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Szukaj miejsc spacerowych..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ paddingLeft: '2.5rem' }}
-              />
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
-            </div>
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!searchTerm || !onSearchCityCoords) return;
+                setIsSearchingCity(true);
+                try {
+                  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTerm)}&limit=1`);
+                  const data = await res.json();
+                  if (data && data.length > 0) {
+                    const item = data[0];
+                    onSearchCityCoords({ lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
+                  } else {
+                    alert("Nie znaleziono takiego miejsca na mapie.");
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert("Błąd podczas wyszukiwania lokalizacji.");
+                } finally {
+                  setIsSearchingCity(false);
+                }
+              }}
+              className="form-group" 
+              style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}
+            >
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Szukaj trasy lub miasta..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ paddingLeft: '2.5rem', width: '100%' }}
+                />
+                <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
+              </div>
+              <button 
+                type="submit" 
+                className="btn btn-secondary btn-sm" 
+                style={{ padding: '0.5rem 0.75rem', display: 'flex', gap: '0.25rem', alignItems: 'center' }}
+                title="Lokalizuj miasto/adres na mapie"
+                disabled={isSearchingCity}
+              >
+                {isSearchingCity ? '...' : '🌐 Idź'}
+              </button>
+            </form>
 
             {/* Quick Category Tab Switcher */}
             <div className="category-tabs">

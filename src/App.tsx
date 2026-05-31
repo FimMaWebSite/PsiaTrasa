@@ -4,7 +4,7 @@ import { db } from './services/db';
 import { Map } from './components/Map';
 import { Sidebar } from './components/Sidebar';
 import { Modal } from './components/Modal';
-import { authService, donationService, isSupabaseConfigured } from './services/supabase';
+import { authService, donationService, isSupabaseConfigured, supabase } from './services/supabase';
 import { 
   Compass, MapPin, AlertTriangle, Sun, Moon, ShieldAlert, Plus, Check, RotateCcw, LogOut, LogIn, Navigation, Terminal, User as UserIcon
 } from 'lucide-react';
@@ -66,6 +66,9 @@ export default function App() {
 
   // Toast System
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+  // Map center coordinates search targeting
+  const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number } | null>(null);
 
   // Modal Visibility
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -171,6 +174,49 @@ export default function App() {
     };
     window.addEventListener('message', handleGoogleMessage);
     return () => window.removeEventListener('message', handleGoogleMessage);
+  }, []);
+
+  // Listen to Supabase Auth state changes (real Google Login redirect callback handler)
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      const client = supabase;
+      const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+          const user = session.user;
+          // Fetch profile details
+          const { data: profile } = await client
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          const loggedInUser: User = {
+            username: profile?.username || user.user_metadata?.username || user.email?.split('@')[0] || 'User',
+            dogName: profile?.dog_name || user.user_metadata?.dogName,
+            dogBreed: profile?.dog_breed || user.user_metadata?.dogBreed,
+            dogSize: profile?.dog_size || user.user_metadata?.dogSize,
+            dogTemperament: profile?.dog_temperament || user.user_metadata?.dogTemperament,
+            isLoggedIn: true,
+            avatarUrl: profile?.avatar_url || user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.email || 'user')}`,
+            email: user.email,
+          };
+          db.setUser(loggedInUser);
+          setCurrentUser(loggedInUser);
+          
+          // Pre-fill profile settings
+          setProfileUsername(loggedInUser.username);
+          setProfileDogName(loggedInUser.dogName || '');
+          setProfileDogBreed(loggedInUser.dogBreed || '');
+          setProfileDogSize(loggedInUser.dogSize || 'medium');
+          setProfileDogTemp(loggedInUser.dogTemperament || 'friendly');
+          
+          showToast('Zalogowano pomyślnie! 🐕');
+        }
+      });
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
   }, []);
 
   // Toast auto-dismissal
@@ -812,6 +858,7 @@ export default function App() {
             searchTerm={searchTerm}
             categoryTab={categoryTab}
             triggerUserLocate={triggerUserLocate}
+            flyToTarget={flyToTarget}
           />
 
           {/* Map Control Buttons */}
@@ -882,6 +929,7 @@ export default function App() {
           setCategoryTab={setCategoryTab}
           onOpenCoffeeModal={() => { setIsCoffeeSuccess(false); setIsCoffeeModalOpen(true); }}
           donations={donations}
+          onSearchCityCoords={(coords) => setFlyToTarget(coords)}
         />
       </main>
 
