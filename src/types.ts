@@ -80,3 +80,39 @@ export interface CoffeeDonation {
   message?: string;
   createdAt: string;
 }
+
+export const POPULAR_BREEDS = [
+  'Kundelek / Mieszaniec',
+  'Labrador Retriever',
+  'Golden Retriever',
+  'Owczarek Niemiecki',
+  'Buldog Francuski',
+  'Border Collie',
+  'Jack Russell Terrier',
+  'Cavalier King Charles',
+  'Yorkshire Terrier',
+  'Shih Tzu',
+  'Cocker Spaniel',
+  'Siberian Husky',
+  'Chihuahua',
+  'Beagle',
+  'Mops',
+  'Bokser',
+  'Samojed',
+  'Maltańczyk',
+  'Pudel',
+  'Whippet',
+  'Berneński Pies Pasterski',
+  'Boston Terrier',
+  'Owczarek Australijski (Aussie)',
+  'Welsh Corgi',
+  'Amstaff / Pitbull',
+  'Sznaucer',
+  'Jamnik',
+  'Seter Irlandzki',
+  'Doberman',
+  'Rottweiler',
+  'Akita',
+  'Inna rasa'
+];
+

@@ -155,6 +155,66 @@ const INITIAL_PLACES: Place[] = [
     distance: 1.8,
     duration: 25,
     difficulty: 'easy'
+  },
+  {
+    id: 'p_warszawa_pole',
+    name: 'Pole Mokotowskie - Strefa dla psów',
+    description: 'Najpopularniejszy park dla psów w Warszawie. Ogromny wybieg, stawy w których psy chętnie się kąpią oraz mnóstwo miejsca do socjalizacji i zabawy z innymi czworonogami.',
+    lat: 52.2132,
+    lng: 21.0022,
+    type: 'park',
+    tags: ['cień', 'woda'],
+    reviews: [
+      {
+        id: 'r_warszawa_1',
+        userName: 'Aneta & Leo',
+        rating: 5,
+        comment: 'Najlepsze miejsce w Warszawie na wybieganie psa. Mnóstwo pozytywnych psiarzy i psów!',
+        createdAt: '2026-05-30T12:00:00Z',
+      }
+    ],
+    checkins: []
+  },
+  {
+    id: 'p_krakow_blonia',
+    name: 'Park Błonia Krakowskie (Wybieg)',
+    description: 'Krakowskie Błonia to legendarne miejsce spotkań psiarzy. Ogromna, otwarta przestrzeń łąkowa idealna do aportowania i swobodnego biegania pod kontrolą.',
+    lat: 50.0594,
+    lng: 19.9142,
+    type: 'park',
+    tags: ['las'],
+    reviews: [],
+    checkins: []
+  },
+  {
+    id: 'p_gdansk_brzezno',
+    name: 'Psia Plaża Gdańsk Brzeźno (Wejście nr 34)',
+    description: 'Oficjalna, dedykowana plaża dla psów w Trójmieście. Szeroka plaża, czysty piasek i bezpieczne wejście do Bałtyku. Raj dla psów kochających wodę!',
+    lat: 54.4178,
+    lng: 18.6295,
+    type: 'water',
+    tags: ['woda'],
+    reviews: [
+      {
+        id: 'r_gdansk_1',
+        userName: 'Karol & Amber',
+        rating: 5,
+        comment: 'Pies przeszczęśliwy! Super, że jest takie oficjalne miejsce nad polskim morzem.',
+        createdAt: '2026-05-29T15:30:00Z',
+      }
+    ],
+    checkins: []
+  },
+  {
+    id: 'p_poznan_kaspr',
+    name: 'Wybieg dla psów w Parku Kasprowicza',
+    description: 'Ogrodzony i oświetlony wybieg w Poznaniu wyposażony w przyrządy do treningu zwinności (agility) oraz bezpieczne śluzy wejściowe.',
+    lat: 52.3995,
+    lng: 16.8974,
+    type: 'enclosure',
+    tags: ['ogrodzony', 'oświetlenie'],
+    reviews: [],
+    checkins: []
   }
 ];
 
@@ -201,7 +261,23 @@ export const db = {
       localStorage.setItem(STORAGE_KEYS.PLACES, JSON.stringify(INITIAL_PLACES));
       return INITIAL_PLACES;
     }
-    return JSON.parse(data);
+    // Merge missing initial places automatically
+    try {
+      const existing: Place[] = JSON.parse(data);
+      let changed = false;
+      INITIAL_PLACES.forEach(init => {
+        if (!existing.some(p => p.id === init.id)) {
+          existing.push(init);
+          changed = true;
+        }
+      });
+      if (changed) {
+        localStorage.setItem(STORAGE_KEYS.PLACES, JSON.stringify(existing));
+      }
+      return existing;
+    } catch (e) {
+      return INITIAL_PLACES;
+    }
   },
 
   savePlaces(places: Place[]) {

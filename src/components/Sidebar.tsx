@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Place, SafetyAlert, LostDog, User, CoffeeDonation } from '../types';
+import { POPULAR_BREEDS } from '../types';
 import { 
   X, PawPrint, MessageSquare, Users, AlertTriangle, Check, Search, Trash2, ExternalLink
 } from 'lucide-react';
@@ -273,7 +274,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   <div className="form-group">
                     <label className="form-label">Rasa</label>
-                    <input type="text" className="form-input" value={dogBreed} onChange={(e) => setDogBreed(e.target.value)} placeholder="np. Golden Retriever" />
+                    <select className="form-select" value={dogBreed} onChange={(e) => setDogBreed(e.target.value)}>
+                      <option value="">-- Wybierz rasę --</option>
+                      {POPULAR_BREEDS.map((breed) => (
+                        <option key={breed} value={breed}>{breed}</option>
+                      ))}
+                    </select>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <div className="form-group">

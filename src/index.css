@@ -199,6 +199,10 @@ a:hover {
   100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 }
 
+.pulse-glow {
+  animation: pulse-red 1.5s infinite !important;
+}
+
 /* Sidebar Drawer style */
 .sidebar {
   width: 420px;

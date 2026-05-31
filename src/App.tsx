@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Place, SafetyAlert, LostDog, User, PlaceType, AlertType, CoffeeDonation } from './types';
+import { POPULAR_BREEDS } from './types';
 import { db } from './services/db';
 import { Map } from './components/Map';
 import { Sidebar } from './components/Sidebar';
@@ -22,6 +23,8 @@ export default function App() {
   // Drawing state
   const [isDrawingRoute, setIsDrawingRoute] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
+  const [isTrackingGPS, setIsTrackingGPS] = useState(false);
+  const [gpsWatchId, setGpsWatchId] = useState<number | null>(null);
 
   // Click Coordinates for modal additions
   const [clickedCoords, setClickedCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -547,6 +550,79 @@ export default function App() {
     setDrawingPoints([...drawingPoints, point]);
   };
 
+  const startGPSTracking = () => {
+    if (!navigator.geolocation) {
+      showToast('Twoja przeglądarka nie obsługuje lokalizacji GPS', 'error');
+      return;
+    }
+    
+    setIsTrackingGPS(true);
+    setDrawingPoints([]);
+    setIsDrawingRoute(true);
+    
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        if (accuracy && accuracy > 30) return;
+        
+        setDrawingPoints((prev) => {
+          if (prev.length === 0) {
+            return [[latitude, longitude]];
+          }
+          
+          const lastPoint = prev[prev.length - 1];
+          const R = 6371000;
+          const dLat = ((latitude - lastPoint[0]) * Math.PI) / 180;
+          const dLng = ((longitude - lastPoint[1]) * Math.PI) / 180;
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((lastPoint[0] * Math.PI) / 180) *
+              Math.cos((latitude * Math.PI) / 180) *
+              Math.sin(dLng / 2) *
+              Math.sin(dLng / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
+          
+          if (distance >= 5) {
+            return [...prev, [latitude, longitude]];
+          }
+          return prev;
+        });
+        
+        setFlyToTarget({ lat: latitude, lng: longitude });
+      },
+      (error) => {
+        console.error('GPS tracking error:', error);
+        showToast('Błąd GPS. Upewnij się, że masz włączoną lokalizację.', 'error');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+    
+    setGpsWatchId(watchId);
+    showToast('Rozpoczęto nagrywanie trasy GPS! 🚶‍♂️🐕');
+  };
+
+  const stopGPSTracking = () => {
+    if (gpsWatchId !== null) {
+      navigator.geolocation.clearWatch(gpsWatchId);
+      setGpsWatchId(null);
+    }
+    setIsTrackingGPS(false);
+    
+    if (drawingPoints.length < 2) {
+      showToast('Zbyt mało punktów (min. 2), by utworzyć trasę spacerową.', 'error');
+      setIsDrawingRoute(false);
+      setDrawingPoints([]);
+    } else {
+      setIsDrawingRoute(false);
+      showToast('Nagrywanie GPS zakończone! Podaj dane trasy spacerowej.', 'success');
+    }
+  };
+
   // Route calculation (distance) using Haversine formula
   const calculateDistance = (points: [number, number][]) => {
     let total = 0;
@@ -793,12 +869,17 @@ export default function App() {
           </div>
 
           {/* Drawing Indicator */}
-          {isDrawingRoute && (
+          {isTrackingGPS ? (
+            <div className="drawing-indicator" style={{ backgroundColor: '#ef4444' }}>
+              <div className="animate-ping" style={{ width: '8px', height: '8px', backgroundColor: '#fff', borderRadius: '50%' }}></div>
+              <span>Śledzenie GPS: Spaceruj z psem, trasa nagrywa się na żywo... ({drawingPoints.length} pkt)</span>
+            </div>
+          ) : isDrawingRoute ? (
             <div className="drawing-indicator">
               <div className="animate-ping" style={{ width: '8px', height: '8px', backgroundColor: '#fff', borderRadius: '50%' }}></div>
               <span>Rysowanie Trasy: Klikaj na mapie, by dodać punkty ({drawingPoints.length})</span>
             </div>
-          )}
+          ) : null}
 
           {/* Map Components */}
           <Map 
@@ -832,7 +913,16 @@ export default function App() {
             >
               <Navigation size={20} />
             </button>
-            {isDrawingRoute ? (
+            {isTrackingGPS ? (
+              <button 
+                className="tool-btn pulse-glow" 
+                onClick={stopGPSTracking} 
+                title="Zatrzymaj nagrywanie GPS"
+                style={{ backgroundColor: '#ef4444', color: 'white', position: 'relative' }}
+              >
+                <div style={{ width: '10px', height: '10px', backgroundColor: 'white', borderRadius: '2px', margin: 'auto' }}></div>
+              </button>
+            ) : isDrawingRoute ? (
               <>
                 <button 
                   className="tool-btn" 
@@ -845,24 +935,37 @@ export default function App() {
                 </button>
                 <button 
                   className="tool-btn tool-btn-danger" 
-                  onClick={() => setDrawingPoints([])} 
+                  onClick={() => {
+                    setDrawingPoints([]);
+                    setIsDrawingRoute(false);
+                  }} 
                   title="Wyczyść punkty"
                 >
                   <RotateCcw size={20} />
                 </button>
               </>
             ) : (
-              <button 
-                className="tool-btn" 
-                onClick={() => {
-                  setIsDrawingRoute(true);
-                  setDrawingPoints([]);
-                  handleCloseSidebar();
-                }} 
-                title="Rysuj trasę spacerową"
-              >
-                <Plus size={20} />
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <button 
+                  className="tool-btn" 
+                  onClick={() => {
+                    setIsDrawingRoute(true);
+                    setDrawingPoints([]);
+                    handleCloseSidebar();
+                  }} 
+                  title="Rysuj trasę spacerową (ręcznie)"
+                >
+                  <Plus size={20} />
+                </button>
+                <button 
+                  className="tool-btn" 
+                  onClick={startGPSTracking} 
+                  title="Nagraj trasę przez GPS"
+                  style={{ backgroundColor: '#3b82f6', color: 'white' }}
+                >
+                  <Compass size={20} />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -968,7 +1071,12 @@ export default function App() {
               </div>
               <div className="form-group">
                 <label className="form-label">Rasa (opcjonalnie)</label>
-                <input type="text" className="form-input" value={authDogBreed} onChange={(e) => setAuthDogBreed(e.target.value)} placeholder="np. Golden Retriever" />
+                <select className="form-select" value={authDogBreed} onChange={(e) => setAuthDogBreed(e.target.value)}>
+                  <option value="">-- Wybierz rasę --</option>
+                  {POPULAR_BREEDS.map((breed) => (
+                    <option key={breed} value={breed}>{breed}</option>
+                  ))}
+                </select>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
@@ -1348,13 +1456,16 @@ export default function App() {
             
             <div className="form-group">
               <label className="form-label">Rasa</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <select 
+                className="form-select" 
                 value={profileDogBreed} 
-                onChange={(e) => setProfileDogBreed(e.target.value)} 
-                placeholder="np. Kundelek" 
-              />
+                onChange={(e) => setProfileDogBreed(e.target.value)}
+              >
+                <option value="">-- Wybierz rasę --</option>
+                {POPULAR_BREEDS.map((breed) => (
+                  <option key={breed} value={breed}>{breed}</option>
+                ))}
+              </select>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
