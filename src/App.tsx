@@ -176,6 +176,35 @@ export default function App() {
     return () => window.removeEventListener('message', handleGoogleMessage);
   }, []);
 
+  // Check for OAuth / Auth redirect errors in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
+    
+    if (error || errorDescription) {
+      const msg = errorDescription || error || 'Nieznany błąd logowania';
+      showToast(`Błąd logowania: ${decodeURIComponent(msg).replace(/\+/g, ' ')}`, 'error');
+      
+      // Clean up URL parameters to keep it clean
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+    
+    // Also check hash for errors (Supabase sometimes redirects errors in the hash fragment)
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const hashError = hashParams.get('error');
+      const hashErrorDesc = hashParams.get('error_description');
+      if (hashError || hashErrorDesc) {
+        const msg = hashErrorDesc || hashError || 'Nieznany błąd logowania';
+        showToast(`Błąd logowania: ${decodeURIComponent(msg).replace(/\+/g, ' ')}`, 'error');
+        const newUrl = window.location.pathname + window.location.search;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, []);
+
   // Listen to Supabase Auth state changes (real Google Login redirect callback handler)
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
