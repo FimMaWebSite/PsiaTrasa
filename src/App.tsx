@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import type { Place, SafetyAlert, LostDog, User, PlaceType, AlertType } from './types';
+import type { Place, SafetyAlert, LostDog, User, PlaceType, AlertType, CoffeeDonation } from './types';
 import { db } from './services/db';
 import { Map } from './components/Map';
 import { Sidebar } from './components/Sidebar';
 import { Modal } from './components/Modal';
+import { authService, donationService, isSupabaseConfigured } from './services/supabase';
 import { 
-  Compass, MapPin, AlertTriangle, Sun, Moon, ShieldAlert, Plus, Check, RotateCcw, LogOut, LogIn, Navigation
+  Compass, MapPin, AlertTriangle, Sun, Moon, ShieldAlert, Plus, Check, RotateCcw, LogOut, LogIn, Navigation, Terminal, User as UserIcon
 } from 'lucide-react';
 
 export default function App() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [alerts, setAlerts] = useState<SafetyAlert[]>([]);
   const [lostDogs, setLostDogs] = useState<LostDog[]>([]);
+  const [donations, setDonations] = useState<CoffeeDonation[]>([]);
   
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [selectedAlert, setSelectedAlert] = useState<SafetyAlert | null>(null);
@@ -39,6 +41,31 @@ export default function App() {
 
   // Auth User
   const [currentUser, setCurrentUser] = useState<User>({ username: 'Gość', isLoggedIn: false });
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Edit Profile / Settings Form State
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileUsername, setProfileUsername] = useState('');
+  const [profileDogName, setProfileDogName] = useState('');
+  const [profileDogBreed, setProfileDogBreed] = useState('');
+  const [profileDogSize, setProfileDogSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [profileDogTemp, setProfileDogTemp] = useState<'friendly' | 'neutral' | 'reactive'>('friendly');
+
+  // Dev Console / Webhook State
+  const [isDevConsoleOpen, setIsDevConsoleOpen] = useState(false);
+  const [simDonorName, setSimDonorName] = useState('Burek i jego człowiek');
+  const [simCoffees, setSimCoffees] = useState(3);
+  const [simMessage, setSimMessage] = useState('Super robota z tymi trasami! 🐕');
+
+  // Filter My Tracks
+  const [isFilterMyTracksActive, setIsFilterMyTracksActive] = useState(false);
+
+  // Toast System
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
   // Modal Visibility
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -47,6 +74,9 @@ export default function App() {
   // Forms inputs
   const [authUsername, setAuthUsername] = useState('');
   const [authDogName, setAuthDogName] = useState('');
+  const [authDogBreed, setAuthDogBreed] = useState('');
+  const [authDogSize, setAuthDogSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [authDogTemp, setAuthDogTemp] = useState<'friendly' | 'neutral' | 'reactive'>('friendly');
   const [authPassword, setAuthPassword] = useState('');
 
   // Place Form inputs
@@ -75,14 +105,85 @@ export default function App() {
     setPlaces(db.getPlaces());
     setAlerts(db.getAlerts());
     setLostDogs(db.getLostDogs());
-    setCurrentUser(db.getUser());
+    
+    // Load session from authService
+    authService.getSession().then((user) => {
+      if (user) {
+        setCurrentUser(user);
+        // Pre-fill profile settings
+        setProfileUsername(user.username);
+        setProfileDogName(user.dogName || '');
+        setProfileDogBreed(user.dogBreed || '');
+        setProfileDogSize(user.dogSize || 'medium');
+        setProfileDogTemp(user.dogTemperament || 'friendly');
+      }
+    });
+
+    // Load donations from donationService
+    donationService.getDonations().then((list) => {
+      setDonations(list);
+    });
+
+    // Subscribe to donations if real Supabase
+    const unsubscribeDonations = donationService.subscribeToNewDonations((newD) => {
+      setDonations(prev => {
+        if (prev.some(d => d.id === newD.id)) return prev;
+        return [newD, ...prev];
+      });
+      showToast(`Nowa wpłata na kawkę! ☕ Dziękujemy, ${newD.donorName}!`);
+    });
 
     // Check system preferences for dark mode
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setTheme('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
     }
+
+    return () => {
+      if (unsubscribeDonations) unsubscribeDonations();
+    };
   }, []);
+
+  // Listen to Google Login popup messages
+  useEffect(() => {
+    const handleGoogleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'google-login-success') {
+        const user: User = {
+          username: e.data.name,
+          dogName: e.data.dog,
+          avatarUrl: e.data.avatar,
+          isLoggedIn: true,
+          email: e.data.email,
+        };
+        db.setUser(user);
+        setCurrentUser(user);
+        
+        // Pre-fill profile settings
+        setProfileUsername(user.username);
+        setProfileDogName(user.dogName || '');
+        setProfileDogBreed('');
+        setProfileDogSize('medium');
+        setProfileDogTemp('friendly');
+
+        setIsAuthModalOpen(false);
+        showToast('Zalogowano przez Google! 👋');
+      }
+    };
+    window.addEventListener('message', handleGoogleMessage);
+    return () => window.removeEventListener('message', handleGoogleMessage);
+  }, []);
+
+  // Toast auto-dismissal
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({ message, type });
+  };
 
   // Theme Toggler
   const toggleTheme = () => {
@@ -116,28 +217,187 @@ export default function App() {
   };
 
   // Auth Operations
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!authUsername) return;
-    const user: User = {
-      username: authUsername,
-      dogName: authDogName || undefined,
-      isLoggedIn: true,
-    };
-    db.setUser(user);
-    setCurrentUser(user);
-    setIsAuthModalOpen(false);
-    // Clean input
-    setAuthUsername('');
-    setAuthDogName('');
+    setAuthError(null);
+    setAuthLoading(true);
+    
+    if (authTab === 'login') {
+      const { user, error } = await authService.signIn(authEmail, authPassword);
+      setAuthLoading(false);
+      if (error) {
+        setAuthError(error);
+        return;
+      }
+      if (user) {
+        setCurrentUser(user);
+        setIsAuthModalOpen(false);
+        showToast('Zalogowano pomyślnie! Witaj z powrotem. 👋');
+        
+        // Pre-fill profile
+        setProfileUsername(user.username);
+        setProfileDogName(user.dogName || '');
+        setProfileDogBreed(user.dogBreed || '');
+        setProfileDogSize(user.dogSize || 'medium');
+        setProfileDogTemp(user.dogTemperament || 'friendly');
+      }
+    } else {
+      // Register
+      if (!authUsername) {
+        setAuthError('Wpisz nazwę użytkownika.');
+        setAuthLoading(false);
+        return;
+      }
+      const { user, error } = await authService.signUp(authEmail, authPassword, {
+        username: authUsername,
+        dogName: authDogName || undefined,
+        dogBreed: authDogBreed || undefined,
+        dogSize: authDogSize,
+        dogTemperament: authDogTemp,
+      });
+      setAuthLoading(false);
+      if (error) {
+        setAuthError(error);
+        return;
+      }
+      if (user) {
+        setCurrentUser(user);
+        setIsAuthModalOpen(false);
+        showToast('Zarejestrowano pomyślnie! Witaj w społeczności. 🐕');
+        
+        // Pre-fill profile
+        setProfileUsername(user.username);
+        setProfileDogName(user.dogName || '');
+        setProfileDogBreed(user.dogBreed || '');
+        setProfileDogSize(user.dogSize || 'medium');
+        setProfileDogTemp(user.dogTemperament || 'friendly');
+      }
+    }
+
+    // Reset inputs
     setAuthPassword('');
   };
 
-  const handleLogout = () => {
+  const handleGoogleLogin = async () => {
+    setAuthError(null);
+    if (isSupabaseConfigured) {
+      const { error } = await authService.signInWithGoogle();
+      if (error) setAuthError(error);
+      return;
+    }
+
+    // Mock Google Login popup
+    const width = 450;
+    const height = 500;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const popup = window.open(
+      "",
+      "GoogleLoginPopup",
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+    
+    if (popup) {
+      popup.document.write(`
+        <html>
+          <head>
+            <title>Logowanie Google - PsiaTrasa</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; color: #0f172a; text-align: center; }
+              .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; width: 320px; }
+              .logo { font-size: 20px; font-weight: bold; color: #10b981; margin-bottom: 5px; }
+              .subtitle { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+              .user-option { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: left; margin-bottom: 10px; transition: all 0.2s; }
+              .user-option:hover { background: #f1f5f9; border-color: #cbd5e1; }
+              .avatar { width: 36px; height: 36px; border-radius: 50%; background: #10b981; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px; }
+              .info { flex: 1; }
+              .name { font-weight: 600; font-size: 14px; color: #0f172a; }
+              .email { font-size: 11px; color: #64748b; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="logo">🐕 PsiaTrasa</div>
+              <div class="subtitle">Wybierz konto Google (Symulacja)</div>
+              
+              <div class="user-option" onclick="login('Kasia i Fuks', 'Fuks')">
+                <div class="avatar" style="background: #10b981;">K</div>
+                <div class="info">
+                  <div class="name">Kasia i Fuks</div>
+                  <div class="email">kasia.fuks@gmail.com</div>
+                </div>
+              </div>
+              
+              <div class="user-option" onclick="login('Tomek & Borys', 'Borys')">
+                <div class="avatar" style="background: #3b82f6;">T</div>
+                <div class="info">
+                  <div class="name">Tomek & Borys</div>
+                  <div class="email">tomek.borys@gmail.com</div>
+                </div>
+              </div>
+              
+              <div class="user-option" onclick="login('Marta & Luna', 'Luna')">
+                <div class="avatar" style="background: #ec4899;">M</div>
+                <div class="info">
+                  <div class="name">Marta & Luna</div>
+                  <div class="email">marta.luna@gmail.com</div>
+                </div>
+              </div>
+            </div>
+            
+            <script>
+              function login(name, dog) {
+                window.opener.postMessage({ 
+                  type: 'google-login-success', 
+                  name: name, 
+                  dog: dog,
+                  email: name.toLowerCase().replace(/\\s/g, '').replace('&', '') + '@gmail.com',
+                  avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(dog)
+                }, '*');
+                window.close();
+              }
+            </script>
+          </body>
+        </html>
+      `);
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileUsername) return;
+
+    const updatedUser: User = {
+      ...currentUser,
+      username: profileUsername,
+      dogName: profileDogName || undefined,
+      dogBreed: profileDogBreed || undefined,
+      dogSize: profileDogSize,
+      dogTemperament: profileDogTemp,
+      avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(profileDogName || profileUsername)}`,
+    };
+
+    const { user, error } = await authService.updateProfile(updatedUser);
+    if (error) {
+      showToast(error, 'error');
+      return;
+    }
+    if (user) {
+      setCurrentUser(user);
+      setIsProfileModalOpen(false);
+      showToast('Profil został zaktualizowany! 🐾');
+    }
+  };
+
+  const handleLogout = async () => {
+    await authService.signOut();
     const guestUser = { username: 'Gość', isLoggedIn: false };
-    db.setUser(guestUser);
     setCurrentUser(guestUser);
+    setIsProfileMenuOpen(false);
+    setIsFilterMyTracksActive(false);
     handleCloseSidebar();
+    showToast('Wylogowano pomyślnie. Do zobaczenia!');
   };
 
   // Add Review
@@ -217,6 +477,7 @@ export default function App() {
       lng: clickedCoords.lng,
       type: newPlaceType,
       tags: newPlaceTags,
+      createdBy: currentUser.isLoggedIn ? (currentUser.email || currentUser.username) : undefined
     });
 
     setPlaces(db.getPlaces());
@@ -227,6 +488,7 @@ export default function App() {
     setNewPlaceTags([]);
     setClickedCoords(null);
     setActiveCreationType(null);
+    showToast('Miejsce zostało dodane! 🐾');
   };
 
   const handleAddAlertSubmit = (e: React.FormEvent) => {
@@ -239,6 +501,7 @@ export default function App() {
       type: newAlertType,
       description: newAlertDesc,
       reportedBy: currentUser.isLoggedIn ? currentUser.username : 'Anonimowy Psiarz',
+      createdBy: currentUser.isLoggedIn ? (currentUser.email || currentUser.username) : undefined
     });
 
     setAlerts(db.getAlerts());
@@ -246,6 +509,7 @@ export default function App() {
     setNewAlertDesc('');
     setClickedCoords(null);
     setActiveCreationType(null);
+    showToast('Zgłoszenie zostało dodane! Uważajcie na siebie. ⚠️', 'info');
   };
 
   const handleAddLostDogSubmit = (e: React.FormEvent) => {
@@ -258,6 +522,7 @@ export default function App() {
       dogName: newDogName,
       description: newDogDesc,
       contactPhone: newDogPhone,
+      createdBy: currentUser.isLoggedIn ? (currentUser.email || currentUser.username) : undefined
     });
 
     setLostDogs(db.getLostDogs());
@@ -267,6 +532,7 @@ export default function App() {
     setNewDogPhone('');
     setClickedCoords(null);
     setActiveCreationType(null);
+    showToast('Zgłoszenie zaginionego psa zostało opublikowane! 🐕', 'error');
   };
 
   // Drawing Route Point Add
@@ -284,7 +550,7 @@ export default function App() {
       const lon1 = points[i][1];
       const lat2 = points[i + 1][0];
       const lon2 = points[i + 1][1];
-
+ 
       const R = 6371; // km
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lon2 - lon1);
@@ -319,6 +585,7 @@ export default function App() {
       distance,
       duration,
       difficulty: newRouteDifficulty,
+      createdBy: currentUser.isLoggedIn ? (currentUser.email || currentUser.username) : undefined
     });
 
     setPlaces(db.getPlaces());
@@ -329,6 +596,7 @@ export default function App() {
     setNewRouteTags([]);
     setDrawingPoints([]);
     setIsDrawingRoute(false);
+    showToast('Trasa spacerowa została zapisana! 🥾');
   };
 
   const handleFilterToggle = (filter: string) => {
@@ -345,6 +613,20 @@ export default function App() {
     } else {
       setTags([...tags, tag]);
     }
+  };
+
+  const handleCoffeeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const donor = coffeeName || 'Anonimowy Psiarz';
+    await donationService.addDonation({
+      donorName: donor,
+      coffees: coffeeCount,
+      message: coffeeMessage || undefined,
+    });
+    const list = await donationService.getDonations();
+    setDonations(list);
+    setIsCoffeeSuccess(true);
+    showToast(`Dziękujemy ${donor} za postawienie kawki! ☕🐾`);
   };
 
   return (
@@ -374,21 +656,104 @@ export default function App() {
           >
             ☕ Postaw kawkę
           </button>
+
+          <button 
+            className="tool-btn" 
+            onClick={() => setIsDevConsoleOpen(true)} 
+            title="Panel Deweloperski & Webhooki" 
+            style={{ width: '40px', height: '40px', boxShadow: 'none' }}
+          >
+            <Terminal size={18} />
+          </button>
+
           <button className="tool-btn" onClick={toggleTheme} style={{ width: '40px', height: '40px', boxShadow: 'none' }}>
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           
           {currentUser.isLoggedIn ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                🐕 <strong>{currentUser.username}</strong> {currentUser.dogName ? `& ${currentUser.dogName}` : ''}
-              </span>
-              <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
-                <LogOut size={16} /> Wyloguj
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="tool-btn"
+                style={{ 
+                  borderRadius: '50%', 
+                  width: '40px', 
+                  height: '40px', 
+                  overflow: 'hidden', 
+                  padding: 0,
+                  border: '2px solid var(--primary)',
+                  boxShadow: 'none'
+                }}
+              >
+                {currentUser.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontSize: '1.2rem' }}>🐕</span>
+                )}
               </button>
+              
+              {isProfileMenuOpen && (
+                <div className="card" style={{ 
+                  position: 'absolute', 
+                  right: 0, 
+                  top: '48px', 
+                  width: '260px', 
+                  zIndex: 2100, 
+                  boxShadow: 'var(--shadow-lg)',
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                  animation: 'slide-up 0.2s ease-out'
+                }}>
+                  <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
+                      🐕
+                    </div>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '0.9rem' }}>{currentUser.username}</strong>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{currentUser.email || 'Konto lokalne'}</span>
+                    </div>
+                  </div>
+                  
+                  {currentUser.dogName && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      <strong>Pies:</strong> {currentUser.dogName}<br />
+                      {currentUser.dogBreed && <><strong>Rasa:</strong> {currentUser.dogBreed}<br /></>}
+                      {currentUser.dogSize && <><strong>Rozmiar:</strong> {currentUser.dogSize === 'small' ? 'Mały' : currentUser.dogSize === 'medium' ? 'Średni' : 'Duży'}<br /></>}
+                      {currentUser.dogTemperament && <><strong>Temperament:</strong> {currentUser.dogTemperament === 'friendly' ? 'Przyjazny' : currentUser.dogTemperament === 'neutral' ? 'Neutralny' : 'Reaktywny'}</>}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      onClick={() => { setIsProfileModalOpen(true); setIsProfileMenuOpen(false); }}
+                      style={{ width: '100%', justifyContent: 'flex-start', fontSize: '0.85rem' }}
+                    >
+                      <UserIcon size={14} /> Twój Profil
+                    </button>
+                    <button 
+                      className={`btn btn-sm ${isFilterMyTracksActive ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => { setIsFilterMyTracksActive(!isFilterMyTracksActive); setIsProfileMenuOpen(false); }}
+                      style={{ width: '100%', justifyContent: 'flex-start', fontSize: '0.85rem' }}
+                    >
+                      <MapPin size={14} /> {isFilterMyTracksActive ? '✓ Twoje Trasy (Włączone)' : 'Twoje Trasy'}
+                    </button>
+                  </div>
+                  
+                  <button 
+                    className="btn btn-danger btn-sm" 
+                    onClick={handleLogout} 
+                    style={{ width: '100%', marginTop: '0.25rem' }}
+                  >
+                    <LogOut size={14} /> Wyloguj się
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
-            <button className="btn btn-primary btn-sm" onClick={() => setIsAuthModalOpen(true)}>
+            <button className="btn btn-primary btn-sm" onClick={() => { setAuthTab('login'); setAuthError(null); setIsAuthModalOpen(true); }}>
               <LogIn size={16} /> Zaloguj się
             </button>
           )}
@@ -430,7 +795,7 @@ export default function App() {
 
           {/* Map Components */}
           <Map 
-            places={places}
+            places={isFilterMyTracksActive ? places.filter(p => p.createdBy && (p.createdBy === currentUser.email || p.createdBy === currentUser.username)) : places}
             alerts={alerts}
             lostDogs={lostDogs}
             selectedPlace={selectedPlace}
@@ -499,7 +864,7 @@ export default function App() {
           selectedPlace={selectedPlace}
           selectedAlert={selectedAlert}
           selectedLostDog={selectedLostDog}
-          places={places}
+          places={isFilterMyTracksActive ? places.filter(p => p.createdBy && (p.createdBy === currentUser.email || p.createdBy === currentUser.username)) : places}
           alerts={alerts}
           lostDogs={lostDogs}
           currentUser={currentUser}
@@ -516,29 +881,146 @@ export default function App() {
           categoryTab={categoryTab}
           setCategoryTab={setCategoryTab}
           onOpenCoffeeModal={() => { setIsCoffeeSuccess(false); setIsCoffeeModalOpen(true); }}
+          donations={donations}
         />
       </main>
 
-      {/* Modal 1: Login Form */}
-      <Modal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} title="Logowanie do PsiaTrasa">
+      {/* Modal 1: Login & Registration Form */}
+      <Modal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} title={authTab === 'login' ? 'Logowanie do PsiaTrasa' : 'Rejestracja w PsiaTrasa'}>
+        {/* Tab switchers */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.25rem', gap: '1rem' }}>
+          <button 
+            type="button" 
+            onClick={() => setAuthTab('login')} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              paddingBottom: '0.5rem', 
+              fontWeight: 600, 
+              fontSize: '0.95rem',
+              color: authTab === 'login' ? 'var(--primary)' : 'var(--text-muted)',
+              borderBottom: authTab === 'login' ? '2px solid var(--primary)' : '2px solid transparent',
+              cursor: 'pointer' 
+            }}
+          >
+            Logowanie
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setAuthTab('register')} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              paddingBottom: '0.5rem', 
+              fontWeight: 600, 
+              fontSize: '0.95rem',
+              color: authTab === 'register' ? 'var(--primary)' : 'var(--text-muted)',
+              borderBottom: authTab === 'register' ? '2px solid var(--primary)' : '2px solid transparent',
+              cursor: 'pointer' 
+            }}
+          >
+            Rejestracja
+          </button>
+        </div>
+
         <form onSubmit={handleLogin}>
+          {authError && (
+            <div style={{ 
+              padding: '0.75rem', 
+              backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+              border: '1px solid rgba(239, 68, 68, 0.3)', 
+              borderRadius: '8px', 
+              color: '#ef4444', 
+              fontSize: '0.85rem', 
+              marginBottom: '1rem',
+              lineHeight: 1.4
+            }}>
+              ⚠️ {authError}
+            </div>
+          )}
+
           <div className="form-group">
-            <label className="form-label">Nazwa użytkownika</label>
-            <input type="text" className="form-input" required value={authUsername} onChange={(e) => setAuthUsername(e.target.value)} placeholder="np. Kasia" />
+            <label className="form-label">Adres e-mail</label>
+            <input type="email" className="form-input" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="np. kasia@gmail.com" />
           </div>
-          <div className="form-group">
-            <label className="form-label">Imię Twojego psa (opcjonalnie)</label>
-            <input type="text" className="form-input" value={authDogName} onChange={(e) => setAuthDogName(e.target.value)} placeholder="np. Fuks" />
-          </div>
+
+          {authTab === 'register' && (
+            <div className="form-group">
+              <label className="form-label">Nazwa użytkownika</label>
+              <input type="text" className="form-input" required value={authUsername} onChange={(e) => setAuthUsername(e.target.value)} placeholder="np. Kasia" />
+            </div>
+          )}
+
+          {authTab === 'register' && (
+            <>
+              <div className="form-group">
+                <label className="form-label">Imię Twojego psa (opcjonalnie)</label>
+                <input type="text" className="form-input" value={authDogName} onChange={(e) => setAuthDogName(e.target.value)} placeholder="np. Fuks" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Rasa (opcjonalnie)</label>
+                <input type="text" className="form-input" value={authDogBreed} onChange={(e) => setAuthDogBreed(e.target.value)} placeholder="np. Golden Retriever" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Rozmiar</label>
+                  <select className="form-select" value={authDogSize} onChange={(e) => setAuthDogSize(e.target.value as any)}>
+                    <option value="small">Mały (&lt;10kg)</option>
+                    <option value="medium">Średni (10-25kg)</option>
+                    <option value="large">Duży (&gt;25kg)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Temperament</label>
+                  <select className="form-select" value={authDogTemp} onChange={(e) => setAuthDogTemp(e.target.value as any)}>
+                    <option value="friendly">Przyjazny</option>
+                    <option value="neutral">Neutralny</option>
+                    <option value="reactive">Reaktywny</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="form-group">
             <label className="form-label">Hasło</label>
-            <input type="password" className="form-input" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="••••••••" />
+            <input type="password" className="form-input" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="••••••••" minLength={6} />
           </div>
-          <div className="modal-footer" style={{ padding: '1rem 0 0 0', borderTop: 'none' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsAuthModalOpen(false)}>Anuluj</button>
-            <button type="submit" className="btn btn-primary">Zaloguj się</button>
-          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '1rem' }} disabled={authLoading}>
+            {authLoading ? 'Proszę czekać...' : authTab === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
+          </button>
         </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', margin: '1rem 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }}></div>
+          <span style={{ padding: '0 0.5rem' }}>LUB</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }}></div>
+        </div>
+
+        {/* Google Login button */}
+        <button 
+          type="button" 
+          onClick={handleGoogleLogin}
+          className="btn btn-secondary" 
+          style={{ 
+            width: '100%', 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            border: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-app)'
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.79 2.7l2.78 2.16c1.63-1.5 2.57-3.71 2.57-6.32z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.78-2.16c-.77.52-1.76.83-2.91.83-2.24 0-4.14-1.51-4.81-3.55L1.6 13.12C3.09 16.08 6.18 18 9 18z"/>
+            <path fill="#FBBC05" d="M4.19 10.94A5.38 5.38 0 0 1 3.9 9c0-.67.11-1.32.3-1.94L1.6 5.1C.97 6.36.6 7.8.6 9c0 1.2.37 2.64 1 3.9l2.59-1.96z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.8 11.43 0 9 0 6.18 0 3.09 1.92 1.6 4.88l2.59 1.96C4.86 4.8 6.76 3.58 9 3.58z"/>
+          </svg>
+          Zaloguj przez Google
+        </button>
       </Modal>
 
       {/* Modal 2: Selection of Marker Type */}
@@ -715,22 +1197,40 @@ export default function App() {
       <Modal isOpen={isCoffeeModalOpen} onClose={() => setIsCoffeeModalOpen(false)} title="Postaw kawkę ☕">
         {isCoffeeSuccess ? (
           <div style={{ textAlign: 'center', padding: '1rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐕💖🎉</div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Dziękujemy pięknie!</h3>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🐕💖</div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Dziękujemy za wsparcie!</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              {coffeeName ? `Dziękujemy, ${coffeeName}! ` : ''}Twój piesek wysyła radosne machnięcie ogonem! Twoje wsparcie pomaga nam utrzymać serwery i dodawać nowe trasy spacerowe. 🐾
+              Dodaliśmy Cię na **Ścianę Chwały**! Aby wesprzeć nas realnie, możesz dokończyć transakcję na platformie **BuyCoffee.to**:
             </p>
+            <a 
+              href="https://buycoffee.to/psiatrasa" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn"
+              style={{ 
+                backgroundColor: '#f59e0b', 
+                color: 'white', 
+                fontWeight: 700, 
+                width: '100%', 
+                marginTop: '1rem',
+                marginBottom: '1rem',
+                border: 'none',
+                textDecoration: 'none'
+              }}
+            >
+              ☕ Dokończ kawę na buycoffee.to
+            </a>
             <button 
               type="button" 
-              className="btn btn-primary" 
-              style={{ marginTop: '1.5rem', width: '100%' }}
+              className="btn btn-secondary" 
+              style={{ width: '100%' }}
               onClick={() => setIsCoffeeModalOpen(false)}
             >
               Zamknij
             </button>
           </div>
         ) : (
-          <form onSubmit={(e) => { e.preventDefault(); setIsCoffeeSuccess(true); }}>
+          <form onSubmit={handleCoffeeSubmit}>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '1.25rem' }}>
               PsiaTrasa to darmowy projekt. Będzie nam niezmiernie miło, jeśli docenisz naszą pracę i postawisz nam wirtualną kawkę!
             </p>
@@ -757,13 +1257,14 @@ export default function App() {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Twój podpis (opcjonalnie)</label>
+              <label className="form-label">Twój podpis / Imię psa</label>
               <input 
                 type="text" 
                 className="form-input" 
+                required
                 value={coffeeName} 
                 onChange={(e) => setCoffeeName(e.target.value)} 
-                placeholder="np. Kasia i Reksio" 
+                placeholder="np. Kasia i Fuks" 
               />
             </div>
             <div className="form-group">
@@ -775,15 +1276,253 @@ export default function App() {
                 placeholder="Wpisz słowa wsparcia dla projektu..." 
               />
             </div>
-            <div className="modal-footer" style={{ padding: '1rem 0 0 0', borderTop: 'none' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setIsCoffeeModalOpen(false)}>Anuluj</button>
-              <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#f59e0b', color: 'white' }}>
-                Wspieraj ({coffeeCount * 5} zł)
-              </button>
+            
+            <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#f59e0b', color: 'white', width: '100%', border: 'none' }}>
+              Wspieraj ({coffeeCount * 5} zł)
+            </button>
+
+            {/* Ściana Chwały (Wall of Fame) */}
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                🏆 Ściana Chwały (Darczyńcy)
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '130px', overflowY: 'auto' }}>
+                {donations.map((d) => (
+                  <div key={d.id} style={{ 
+                    fontSize: '0.8rem', 
+                    padding: '0.5rem 0.75rem', 
+                    backgroundColor: 'var(--bg-app)', 
+                    borderRadius: 'var(--radius-sm)', 
+                    border: '1px solid var(--border-color)' 
+                  }}>
+                    <div style={{ display: 'flex', justifySelf: 'stretch', justifyContent: 'space-between', fontWeight: 600, marginBottom: '0.15rem' }}>
+                      <span>👤 {d.donorName}</span>
+                      <span style={{ color: '#f59e0b' }}>☕ x{d.coffees}</span>
+                    </div>
+                    {d.message && <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>"{d.message}"</p>}
+                  </div>
+                ))}
+              </div>
             </div>
           </form>
         )}
       </Modal>
+
+      {/* Modal 8: Edit Profile Settings */}
+      <Modal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Ustawienia Twojego Profilu">
+        <form onSubmit={handleUpdateProfile}>
+          <div className="form-group">
+            <label className="form-label">Nazwa użytkownika</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              required 
+              value={profileUsername} 
+              onChange={(e) => setProfileUsername(e.target.value)} 
+              placeholder="np. Kasia" 
+            />
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '1.25rem', paddingTop: '1.25rem' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.75rem' }}>🐕 Dane Twojego Psa</h4>
+            
+            <div className="form-group">
+              <label className="form-label">Imię psa</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={profileDogName} 
+                onChange={(e) => setProfileDogName(e.target.value)} 
+                placeholder="np. Fuks" 
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Rasa</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={profileDogBreed} 
+                onChange={(e) => setProfileDogBreed(e.target.value)} 
+                placeholder="np. Kundelek" 
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Rozmiar</label>
+                <select className="form-select" value={profileDogSize} onChange={(e) => setProfileDogSize(e.target.value as any)}>
+                  <option value="small">Mały (&lt;10kg)</option>
+                  <option value="medium">Średni (10-25kg)</option>
+                  <option value="large">Duży (&gt;25kg)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Temperament</label>
+                <select className="form-select" value={profileDogTemp} onChange={(e) => setProfileDogTemp(e.target.value as any)}>
+                  <option value="friendly">Przyjazny</option>
+                  <option value="neutral">Neutralny</option>
+                  <option value="reactive">Reaktywny</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-footer" style={{ padding: '1rem 0 0 0', borderTop: 'none', marginTop: '1rem' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setIsProfileModalOpen(false)}>Anuluj</button>
+            <button type="submit" className="btn btn-primary">Zapisz Zmiany</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal 9: Developer / Webhook Console */}
+      <Modal isOpen={isDevConsoleOpen} onClose={() => setIsDevConsoleOpen(false)} title="Panel Deweloperski & Webhooki">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          
+          {/* Supabase Status */}
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: 'var(--bg-app)', 
+            borderRadius: '12px', 
+            border: '1px solid var(--border-color)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '0.5rem' 
+          }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              📡 Status Integracji Supabase
+            </h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <div style={{ 
+                width: '10px', 
+                height: '10px', 
+                borderRadius: '50%', 
+                backgroundColor: isSupabaseConfigured ? '#10b981' : '#f59e0b',
+                boxShadow: isSupabaseConfigured ? '0 0 8px #10b981' : '0 0 8px #f59e0b'
+              }} />
+              <strong>{isSupabaseConfigured ? 'Połączono z bazą produkcyjną Supabase Auth' : 'Tryb symulacji lokalnej (Mock LocalStorage)'}</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              {isSupabaseConfigured 
+                ? 'Zmienne środowiskowe VITE_SUPABASE_URL i VITE_SUPABASE_ANON_KEY zostały pomyślnie załadowane. Rejestracja, logowanie i Ściana Chwały są w 100% zsynchronizowane z chmurą Supabase.' 
+                : 'Aplikacja działa w trybie offline z pełną symulacją rejestracji, sprawdzania poprawności haseł oraz zapisu w localStorage. Aby połączyć się z własnym Supabase, dodaj zmienne VITE_SUPABASE_URL oraz VITE_SUPABASE_ANON_KEY do pliku .env.'}
+            </p>
+          </div>
+
+          {/* Webhook Simulator */}
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: 'rgba(16, 185, 129, 0.05)', 
+            borderRadius: '12px', 
+            border: '1px solid rgba(16, 185, 129, 0.2)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '0.75rem' 
+          }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              🔌 Symulator Webhooka BuyCoffee.to
+            </h4>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Kiedy ktoś wpłaci datek na BuyCoffee.to/psiatrasa, ich serwer wysyła webhook (HTTP POST). Zasymuluj ten pakiet danych poniżej, aby sprawdzić dynamiczne dołączenie darczyńcy na Ścianę Chwały w czasie rzeczywistym!
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.75rem' }}>Nazwa darczyńcy i psa</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                  value={simDonorName} 
+                  onChange={(e) => setSimDonorName(e.target.value)} 
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.75rem' }}>Liczba kaw</label>
+                <input 
+                  type="number" 
+                  className="form-input" 
+                  style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                  value={simCoffees} 
+                  min={1}
+                  onChange={(e) => setSimCoffees(parseInt(e.target.value) || 1)} 
+                />
+              </div>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem' }}>Wiadomość wsparcia</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                value={simMessage} 
+                onChange={(e) => setSimMessage(e.target.value)} 
+              />
+            </div>
+
+            <button 
+              type="button" 
+              className="btn btn-primary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', alignSelf: 'flex-start', marginTop: '0.25rem' }}
+              onClick={async () => {
+                await donationService.addDonation({
+                  donorName: simDonorName,
+                  coffees: simCoffees,
+                  message: simMessage || undefined
+                });
+                
+                // Reload list in view
+                const list = await donationService.getDonations();
+                setDonations(list);
+
+                showToast(`Zasymulowano Webhook: ${simDonorName} postawił kawkę! ☕`);
+                setIsDevConsoleOpen(false);
+              }}
+            >
+              🚀 Wyślij symulowany webhook
+            </button>
+          </div>
+
+          {/* Integration Guidelines */}
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+            <strong>Integracja webhooka buycoffee.to w produkcji:</strong><br />
+            1. Skonfiguruj endpoint na serwerze (np. Supabase Edge Function).<br />
+            2. Wklej URL endpointu w ustawieniach konta BuyCoffee.to w zakładce "Webhooki".<br />
+            3. Po otrzymaniu POST z buycoffee.to, serwer zapisuje datek w tabeli SQL <code style={{ backgroundColor: 'var(--bg-app)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>donations</code>, a ten klient automatycznie odświeży widok w czasie rzeczywistym!
+          </div>
+
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIsDevConsoleOpen(false)} style={{ alignSelf: 'flex-end', marginTop: '0.5rem' }}>
+            Zamknij panel
+          </button>
+        </div>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div 
+          className={`toast toast-${toast.type}`}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            backgroundColor: toast.type === 'error' ? '#ef4444' : toast.type === 'info' ? '#3b82f6' : '#10b981',
+            color: 'white',
+            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontWeight: 600,
+            animation: 'slide-up 0.3s ease-out'
+          }}
+        >
+          {toast.type === 'error' ? '⚠️' : toast.type === 'info' ? 'ℹ️' : '🐾'}
+          <span>{toast.message}</span>
+        </div>
+      )}
     </>
   );
 }

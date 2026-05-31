@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Place, SafetyAlert, LostDog, User } from '../types';
+import type { Place, SafetyAlert, LostDog, User, CoffeeDonation } from '../types';
 import { 
   X, PawPrint, MessageSquare, Users, AlertTriangle, Check, Search, Trash2, ExternalLink
 } from 'lucide-react';
@@ -25,6 +25,7 @@ interface SidebarProps {
   categoryTab: 'all' | 'enclosure' | 'park' | 'water' | 'route';
   setCategoryTab: (val: 'all' | 'enclosure' | 'park' | 'water' | 'route') => void;
   onOpenCoffeeModal: () => void;
+  donations: CoffeeDonation[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -48,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   categoryTab,
   setCategoryTab,
   onOpenCoffeeModal,
+  donations,
 }) => {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
@@ -583,12 +585,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   fontSize: '0.85rem',
                   fontWeight: 600,
                   width: '100%',
-                  border: 'none'
+                  border: 'none',
+                  marginBottom: '0.5rem'
                 }}
                 onClick={onOpenCoffeeModal}
               >
                 Postaw kawkę (np. 5 zł)
               </button>
+
+              {donations.length > 0 && (
+                <div style={{ 
+                  marginTop: '0.5rem', 
+                  fontSize: '0.75rem', 
+                  color: '#9a3412', 
+                  backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                  padding: '0.4rem 0.6rem', 
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  border: '1px dashed rgba(245, 158, 11, 0.3)'
+                }}>
+                  💖 Ostatnio kawkę postawił:<br />
+                  <strong>{donations[0].donorName}</strong> ({donations[0].coffees} ☕)
+                </div>
+              )}
             </div>
           </div>
         )}

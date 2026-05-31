@@ -32,6 +32,7 @@ export interface Place {
   duration?: number; // for routes, in minutes
   difficulty?: 'easy' | 'medium' | 'hard'; // for routes
   imageUrl?: string;
+  createdBy?: string;
 }
 
 export type AlertType = 'glass' | 'wild_animals' | 'poison' | 'other';
@@ -45,6 +46,7 @@ export interface SafetyAlert {
   createdAt: string;
   reportedBy: string;
   resolved: boolean;
+  createdBy?: string;
 }
 
 export interface LostDog {
@@ -57,10 +59,24 @@ export interface LostDog {
   photoUrl?: string;
   createdAt: string;
   resolved: boolean;
+  createdBy?: string;
 }
 
 export interface User {
   username: string;
   dogName?: string;
+  dogBreed?: string;
+  dogSize?: 'small' | 'medium' | 'large';
+  dogTemperament?: 'friendly' | 'neutral' | 'reactive';
   isLoggedIn: boolean;
+  avatarUrl?: string;
+  email?: string;
+}
+
+export interface CoffeeDonation {
+  id: string;
+  donorName: string;
+  coffees: number;
+  message?: string;
+  createdAt: string;
 }

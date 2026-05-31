@@ -1,10 +1,11 @@
-import type { Place, SafetyAlert, LostDog, User, Review, CheckIn } from '../types';
+import type { Place, SafetyAlert, LostDog, User, Review, CheckIn, CoffeeDonation } from '../types';
 
 const STORAGE_KEYS = {
   PLACES: 'psiatrasa_places',
   ALERTS: 'psiatrasa_alerts',
   LOST_DOGS: 'psiatrasa_lost_dogs',
   USER: 'psiatrasa_user',
+  DONATIONS: 'psiatrasa_donations',
 };
 
 const INITIAL_PLACES: Place[] = [
@@ -339,5 +340,49 @@ export const db = {
 
   setUser(user: User) {
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  },
+
+  getDonations(): CoffeeDonation[] {
+    const data = localStorage.getItem(STORAGE_KEYS.DONATIONS);
+    if (!data) {
+      const initial: CoffeeDonation[] = [
+        {
+          id: 'd1',
+          donorName: 'Reksio i Kasia',
+          coffees: 3,
+          message: 'Super inicjatywa, w końcu wiemy gdzie biegać! 🐾',
+          createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+        },
+        {
+          id: 'd2',
+          donorName: 'Tomek i Borys',
+          coffees: 1,
+          message: 'Dzięki za ostrzeżenie o dzikach na Tołpy!',
+          createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+        },
+        {
+          id: 'd3',
+          donorName: 'Luna & Marta',
+          coffees: 5,
+          message: 'Najlepsza mapa spacerowa we Wrocławiu! Polecam kawiarnie pod psem.',
+          createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+        }
+      ];
+      localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(initial));
+      return initial;
+    }
+    return JSON.parse(data);
+  },
+
+  addDonation(donation: Omit<CoffeeDonation, 'id' | 'createdAt'>): CoffeeDonation {
+    const donations = this.getDonations();
+    const newDonation: CoffeeDonation = {
+      ...donation,
+      id: Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString(),
+    };
+    donations.unshift(newDonation);
+    localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(donations));
+    return newDonation;
   }
 };
