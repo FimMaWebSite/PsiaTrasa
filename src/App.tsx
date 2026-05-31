@@ -28,6 +28,8 @@ export default function App() {
   // Filters and Theme
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryTab, setCategoryTab] = useState<'all' | 'enclosure' | 'park' | 'water' | 'route'>('all');
 
   // Auth User
   const [currentUser, setCurrentUser] = useState<User>({ username: 'Gość', isLoggedIn: false });
@@ -420,6 +422,8 @@ export default function App() {
             onAddDrawingPoint={handleAddDrawingPoint}
             onClickMapToAddSpot={handleMapClick}
             activeFilters={activeFilters}
+            searchTerm={searchTerm}
+            categoryTab={categoryTab}
           />
 
           {/* Map Control Buttons */}
@@ -476,6 +480,10 @@ export default function App() {
           onResolveAlert={handleResolveAlert}
           onResolveLostDog={handleResolveLostDog}
           onOpenAuth={() => setIsAuthModalOpen(true)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          categoryTab={categoryTab}
+          setCategoryTab={setCategoryTab}
         />
       </main>
 

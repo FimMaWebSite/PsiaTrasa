@@ -20,6 +20,10 @@ interface SidebarProps {
   onResolveAlert: (alertId: string) => void;
   onResolveLostDog: (dogId: string) => void;
   onOpenAuth: () => void;
+  searchTerm: string;
+  setSearchTerm: (val: string) => void;
+  categoryTab: 'all' | 'enclosure' | 'park' | 'water' | 'route';
+  setCategoryTab: (val: 'all' | 'enclosure' | 'park' | 'water' | 'route') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,9 +42,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onResolveAlert,
   onResolveLostDog,
   onOpenAuth,
+  searchTerm,
+  setSearchTerm,
+  categoryTab,
+  setCategoryTab,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryTab, setCategoryTab] = useState<'all' | 'enclosure' | 'park' | 'water' | 'route'>('all');
   const [reviewComment, setReviewComment] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   const [dogName, setDogName] = useState(currentUser.dogName || '');

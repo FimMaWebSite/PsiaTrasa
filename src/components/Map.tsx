@@ -20,6 +20,8 @@ interface MapProps {
   onAddDrawingPoint: (point: [number, number]) => void;
   onClickMapToAddSpot: (lat: number, lng: number) => void;
   activeFilters: string[];
+  searchTerm: string;
+  categoryTab: string;
 }
 
 export const Map: React.FC<MapProps> = ({
@@ -37,11 +39,14 @@ export const Map: React.FC<MapProps> = ({
   onAddDrawingPoint,
   onClickMapToAddSpot,
   activeFilters,
+  searchTerm,
+  categoryTab,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const drawingLayerRef = useRef<L.Polyline | null>(null);
+  const itemRefs = useRef<Record<string, L.Marker | L.Polyline>>({});
 
   // Initialize Map
   useEffect(() => {
@@ -148,6 +153,7 @@ export const Map: React.FC<MapProps> = ({
     if (!map || !layer) return;
 
     layer.clearLayers();
+    itemRefs.current = {};
 
     // 1. Render Places
     places.forEach((place) => {
@@ -164,6 +170,22 @@ export const Map: React.FC<MapProps> = ({
           return true;
         });
         if (!matchesFilters) return;
+      }
+
+      // Category tab filtering
+      if (categoryTab !== 'all') {
+        if (categoryTab === 'enclosure' && place.type !== 'enclosure') return;
+        if (categoryTab === 'park' && place.type !== 'park') return;
+        if (categoryTab === 'water' && place.type !== 'water') return;
+        if (categoryTab === 'route' && place.type !== 'route') return;
+      }
+
+      // Search term filtering
+      if (searchTerm) {
+        const query = searchTerm.toLowerCase();
+        const matchesSearch = place.name.toLowerCase().includes(query) || 
+                              place.description.toLowerCase().includes(query);
+        if (!matchesSearch) return;
       }
 
       // Icon Selector based on type
@@ -186,8 +208,23 @@ export const Map: React.FC<MapProps> = ({
       });
 
       const marker = L.marker([place.lat, place.lng], { icon: customIcon });
+      
+      const popupHtml = `
+        <div class="custom-leaflet-popup">
+          <strong class="popup-title">${place.name}</strong>
+          <p class="popup-desc">${place.description.substring(0, 80)}...</p>
+          <div class="popup-actions">
+            <a href="https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}" target="_blank" rel="noopener noreferrer" class="popup-nav-btn">
+              🗺️ Nawiguj w Google Maps
+            </a>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupHtml, { minWidth: 200 });
       marker.on('click', () => onSelectPlace(place));
       layer.addLayer(marker);
+      itemRefs.current[place.id] = marker;
 
       // If it is a route/trail, draw its complete polyline
       if (place.type === 'route' && place.routePoints) {
@@ -218,7 +255,16 @@ export const Map: React.FC<MapProps> = ({
 
       const marker = L.marker([alert.lat, alert.lng], { icon: customIcon });
       marker.on('click', () => onSelectAlert(alert));
+      
+      const popupHtml = `
+        <div class="custom-leaflet-popup">
+          <strong class="popup-title" style="color: #ef4444;">⚠️ Zagrożenie!</strong>
+          <p class="popup-desc">${alert.description}</p>
+        </div>
+      `;
+      marker.bindPopup(popupHtml, { minWidth: 200 });
       layer.addLayer(marker);
+      itemRefs.current[alert.id] = marker;
     });
 
     // 3. Render Lost Dog Alerts (Active only)
@@ -238,21 +284,47 @@ export const Map: React.FC<MapProps> = ({
 
       const marker = L.marker([dog.lat, dog.lng], { icon: customIcon });
       marker.on('click', () => onSelectLostDog(dog));
-      layer.addLayer(marker);
-    });
-  }, [places, alerts, lostDogs, activeFilters, onSelectPlace, onSelectAlert, onSelectLostDog]);
 
-  // Center Map on Selected Item
+      const popupHtml = `
+        <div class="custom-leaflet-popup">
+          <strong class="popup-title" style="color: #dc2626;">🚨 Zaginął ${dog.dogName}!</strong>
+          <p class="popup-desc">${dog.description}</p>
+          <div class="popup-actions">
+            <a href="tel:${dog.contactPhone}" class="popup-nav-btn" style="background-color: #dc2626;">
+              📞 Zadzwoń: ${dog.contactPhone}
+            </a>
+          </div>
+        </div>
+      `;
+      marker.bindPopup(popupHtml, { minWidth: 200 });
+      layer.addLayer(marker);
+      itemRefs.current[dog.id] = marker;
+    });
+  }, [places, alerts, lostDogs, activeFilters, searchTerm, categoryTab, onSelectPlace, onSelectAlert, onSelectLostDog]);
+
+  // Center Map & Open Popup on Selected Item
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     if (selectedPlace) {
       map.setView([selectedPlace.lat, selectedPlace.lng], 15);
+      const marker = itemRefs.current[selectedPlace.id];
+      if (marker && marker instanceof L.Marker) {
+        marker.openPopup();
+      }
     } else if (selectedAlert) {
       map.setView([selectedAlert.lat, selectedAlert.lng], 15);
+      const marker = itemRefs.current[selectedAlert.id];
+      if (marker && marker instanceof L.Marker) {
+        marker.openPopup();
+      }
     } else if (selectedLostDog) {
       map.setView([selectedLostDog.lat, selectedLostDog.lng], 15);
+      const marker = itemRefs.current[selectedLostDog.id];
+      if (marker && marker instanceof L.Marker) {
+        marker.openPopup();
+      }
     }
   }, [selectedPlace, selectedAlert, selectedLostDog]);
 
