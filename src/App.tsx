@@ -334,90 +334,14 @@ export default function App() {
 
   const handleGoogleLogin = async () => {
     setAuthError(null);
-    if (isSupabaseConfigured) {
-      const { error } = await authService.signInWithGoogle();
-      if (error) setAuthError(error);
+    if (!isSupabaseConfigured) {
+      alert("Błąd: Konfiguracja Supabase jest pusta w tej wersji strony. Upewnij się, że dodałeś sekrety (Secrets) VITE_SUPABASE_URL i VITE_SUPABASE_ANON_KEY w panelu GitHub -> Settings -> Secrets and variables -> Actions, a następnie wypchnąłeś kod (git push)!");
       return;
     }
-
-    // Mock Google Login popup
-    const width = 450;
-    const height = 500;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
     
-    const popup = window.open(
-      "",
-      "GoogleLoginPopup",
-      `width=${width},height=${height},left=${left},top=${top}`
-    );
-    
-    if (popup) {
-      popup.document.write(`
-        <html>
-          <head>
-            <title>Logowanie Google - PsiaTrasa</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; color: #0f172a; text-align: center; }
-              .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; width: 320px; }
-              .logo { font-size: 20px; font-weight: bold; color: #10b981; margin-bottom: 5px; }
-              .subtitle { font-size: 13px; color: #64748b; margin-bottom: 24px; }
-              .user-option { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: left; margin-bottom: 10px; transition: all 0.2s; }
-              .user-option:hover { background: #f1f5f9; border-color: #cbd5e1; }
-              .avatar { width: 36px; height: 36px; border-radius: 50%; background: #10b981; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px; }
-              .info { flex: 1; }
-              .name { font-weight: 600; font-size: 14px; color: #0f172a; }
-              .email { font-size: 11px; color: #64748b; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <div class="logo">🐕 PsiaTrasa</div>
-              <div class="subtitle">Wybierz konto Google (Symulacja)</div>
-              
-              <div class="user-option" onclick="login('Kasia i Fuks', 'Fuks')">
-                <div class="avatar" style="background: #10b981;">K</div>
-                <div class="info">
-                  <div class="name">Kasia i Fuks</div>
-                  <div class="email">kasia.fuks@gmail.com</div>
-                </div>
-              </div>
-              
-              <div class="user-option" onclick="login('Tomek & Borys', 'Borys')">
-                <div class="avatar" style="background: #3b82f6;">T</div>
-                <div class="info">
-                  <div class="name">Tomek & Borys</div>
-                  <div class="email">tomek.borys@gmail.com</div>
-                </div>
-              </div>
-              
-              <div class="user-option" onclick="login('Marta & Luna', 'Luna')">
-                <div class="avatar" style="background: #ec4899;">M</div>
-                <div class="info">
-                  <div class="name">Marta & Luna</div>
-                  <div class="email">marta.luna@gmail.com</div>
-                </div>
-              </div>
-            </div>
-            
-            <script>
-              function login(name, dog) {
-                window.opener.postMessage({ 
-                  type: 'google-login-success', 
-                  name: name, 
-                  dog: dog,
-                  email: name.toLowerCase().replace(/\\s/g, '').replace('&', '') + '@gmail.com',
-                  avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(dog)
-                }, '*');
-                window.close();
-              }
-            </script>
-          </body>
-        </html>
-      `);
-    }
+    const { error } = await authService.signInWithGoogle();
+    if (error) setAuthError(error);
   };
-
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileUsername) return;
