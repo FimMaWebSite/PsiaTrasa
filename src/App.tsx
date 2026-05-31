@@ -43,7 +43,7 @@ export default function App() {
   const [triggerUserLocate, setTriggerUserLocate] = useState(0);
 
   // Auth User
-  const [currentUser, setCurrentUser] = useState<User>({ username: 'Gość', isLoggedIn: false });
+  const [currentUser, setCurrentUser] = useState<User>(() => db.getUser());
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
@@ -212,7 +212,7 @@ export default function App() {
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
       const client = supabase;
-      const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, session) => {
+      const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
           const user = session.user;
           // Fetch profile details gracefully
@@ -250,7 +250,13 @@ export default function App() {
           setProfileDogSize(loggedInUser.dogSize || 'medium');
           setProfileDogTemp(loggedInUser.dogTemperament || 'friendly');
           
-          showToast('Zalogowano pomyślnie! 🐕');
+          if (event === 'SIGNED_IN') {
+            showToast('Zalogowano pomyślnie! 🐕');
+          }
+        } else if (event === 'SIGNED_OUT' || (event === 'INITIAL_SESSION' && !session)) {
+          const guestUser = { username: 'Gość', isLoggedIn: false };
+          db.setUser(guestUser);
+          setCurrentUser(guestUser);
         }
       });
       return () => {
