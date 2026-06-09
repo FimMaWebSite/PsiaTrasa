@@ -708,7 +708,7 @@ a:hover {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  color: var(--text-main);
+  color: var(--text-main) !important;
   padding: 0.25rem;
 }
 .leaflet-popup-tip {
@@ -724,11 +724,11 @@ a:hover {
   font-size: 0.95rem;
   font-weight: 700;
   margin-bottom: 0.35rem;
-  color: var(--text-main);
+  color: var(--text-main) !important;
 }
 .popup-desc {
   font-size: 0.825rem;
-  color: var(--text-muted);
+  color: var(--text-muted) !important;
   line-height: 1.4;
   margin-bottom: 0.75rem;
 }
