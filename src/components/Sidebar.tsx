@@ -28,6 +28,9 @@ interface SidebarProps {
   onOpenCoffeeModal: () => void;
   donations: CoffeeDonation[];
   onSearchCityCoords?: (coords: { lat: number; lng: number }) => void;
+  isModerator?: boolean;
+  onApprovePlace?: (placeId: string) => void;
+  onRejectPlace?: (placeId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -53,6 +56,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenCoffeeModal,
   donations,
   onSearchCityCoords,
+  isModerator,
+  onApprovePlace,
+  onRejectPlace,
 }) => {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
@@ -204,12 +210,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem'
+                gap: '0.5rem',
+                flexWrap: 'wrap'
               }}>
                 <span style={{ fontSize: '1.2rem' }}>🟡</span>
-                <div>
+                <div style={{ flex: 1, minWidth: '200px' }}>
                   <strong style={{ display: 'block', fontWeight: 600 }}>Miejsce w weryfikacji</strong>
                   <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Będzie widoczne dla wszystkich po zaakceptowaniu przez moderatora.</span>
+                  {isModerator && (
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                      <button 
+                        type="button"
+                        className="btn btn-primary btn-sm" 
+                        onClick={() => onApprovePlace && onApprovePlace(selectedPlace.id)}
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
+                      >
+                        ✓ Zatwierdź
+                      </button>
+                      <button 
+                        type="button"
+                        className="btn btn-danger btn-sm" 
+                        onClick={() => onRejectPlace && onRejectPlace(selectedPlace.id)}
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', backgroundColor: '#ef4444', borderColor: '#ef4444', color: 'white' }}
+                      >
+                        ✕ Odrzuć
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

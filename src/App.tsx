@@ -36,6 +36,9 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryTab, setCategoryTab] = useState<'all' | 'enclosure' | 'park' | 'water' | 'route'>('all');
   const [showPendingPlaces, setShowPendingPlaces] = useState(false);
+  const [isModeratorModeActive, setIsModeratorModeActive] = useState(() => {
+    return localStorage.getItem('psiatrasa_mod_mode') === 'true';
+  });
   const [isCoffeeModalOpen, setIsCoffeeModalOpen] = useState(false);
   const [coffeeCount, setCoffeeCount] = useState(1);
   const [coffeeName, setCoffeeName] = useState('');
@@ -85,6 +88,13 @@ export default function App() {
   const [authDogSize, setAuthDogSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [authDogTemp, setAuthDogTemp] = useState<'friendly' | 'neutral' | 'reactive'>('friendly');
   const [authPassword, setAuthPassword] = useState('');
+
+  const isUserModerator = isModeratorModeActive || 
+    (currentUser.isLoggedIn && (
+      currentUser.email?.toLowerCase().includes('admin') || 
+      currentUser.email?.toLowerCase().includes('filip') || 
+      currentUser.email === 'filip.fimma@gmail.com'
+    ));
 
   // Place Form inputs
   const [newPlaceName, setNewPlaceName] = useState('');
@@ -506,6 +516,42 @@ export default function App() {
     setClickedCoords(null);
     setActiveCreationType(null);
     showToast('Miejsce zostało dodane i przekazane do weryfikacji! 🐾', 'info');
+  };
+
+  const handleApprovePlace = (placeId: string) => {
+    const allPlaces = db.getPlaces();
+    const updated = allPlaces.map(p => {
+      if (p.id === placeId) {
+        return { ...p, status: 'approved' as const };
+      }
+      return p;
+    });
+    db.savePlaces(updated);
+    setPlaces(db.getPlaces());
+    
+    if (selectedPlace && selectedPlace.id === placeId) {
+      setSelectedPlace({ ...selectedPlace, status: 'approved' });
+    }
+    
+    showToast('Miejsce zostało zatwierdzone i opublikowane! 🟢');
+  };
+
+  const handleRejectPlace = (placeId: string) => {
+    const allPlaces = db.getPlaces();
+    const updated = allPlaces.map(p => {
+      if (p.id === placeId) {
+        return { ...p, status: 'rejected' as const };
+      }
+      return p;
+    });
+    db.savePlaces(updated);
+    setPlaces(db.getPlaces());
+    
+    if (selectedPlace && selectedPlace.id === placeId) {
+      setSelectedPlace(null);
+    }
+    
+    showToast('Miejsce zostało odrzucone. 🔴', 'error');
   };
 
   const handleAddAlertSubmit = (e: React.FormEvent) => {
@@ -1029,6 +1075,9 @@ export default function App() {
           onOpenCoffeeModal={() => { setIsCoffeeSuccess(false); setIsCoffeeModalOpen(true); }}
           donations={donations}
           onSearchCityCoords={(coords) => setFlyToTarget(coords)}
+          isModerator={isUserModerator}
+          onApprovePlace={handleApprovePlace}
+          onRejectPlace={handleRejectPlace}
         />
       </main>
 
@@ -1637,6 +1686,37 @@ export default function App() {
             >
               🚀 Wyślij symulowany webhook
             </button>
+          </div>
+
+          {/* Moderation Controls (Tryb Moderatora) */}
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: 'rgba(245, 158, 11, 0.05)', 
+            borderRadius: '12px', 
+            border: '1px solid rgba(245, 158, 11, 0.2)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '0.5rem' 
+          }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: '#d97706', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              🛡️ Tryb Moderatora (Weryfikacja Miejsc)
+            </h4>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Włącz tryb moderatora, aby móc zatwierdzać lub odrzucać zgłoszone miejsca (trasy, wybiegi) bezpośrednio w panelu bocznym wybranego miejsca.
+            </p>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem' }}>
+              <input 
+                type="checkbox" 
+                checked={isModeratorModeActive} 
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setIsModeratorModeActive(val);
+                  localStorage.setItem('psiatrasa_mod_mode', val ? 'true' : 'false');
+                  showToast(val ? 'Włączono tryb moderatora! 🛡️' : 'Wyłączono tryb moderatora.', 'info');
+                }}
+              />
+              Włącz uprawnienia moderatora (Symulacja)
+            </label>
           </div>
 
           {/* Integration Guidelines */}
