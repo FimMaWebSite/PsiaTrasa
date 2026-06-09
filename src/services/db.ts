@@ -290,6 +290,7 @@ export const db = {
       ...place,
       reviews: [],
       checkins: [],
+      status: 'pending',
     };
     places.push(newPlace);
     this.savePlaces(places);

@@ -193,6 +193,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
 
+            {selectedPlace.status === 'pending' && (
+              <div style={{ 
+                backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                border: '1px solid #f59e0b', 
+                color: '#d97706', 
+                padding: '0.75rem', 
+                borderRadius: 'var(--radius-md)', 
+                marginBottom: '1rem',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <span style={{ fontSize: '1.2rem' }}>🟡</span>
+                <div>
+                  <strong style={{ display: 'block', fontWeight: 600 }}>Miejsce w weryfikacji</strong>
+                  <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Będzie widoczne dla wszystkich po zaakceptowaniu przez moderatora.</span>
+                </div>
+              </div>
+            )}
+
             <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '0.5rem' }}>{selectedPlace.name}</h2>
             
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '1.25rem' }}>
@@ -254,15 +275,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Kto jest na miejscu? ({selectedPlace.checkins.length})
                 </h3>
                 {!showCheckInForm && (
-                  <button className="btn btn-secondary btn-sm" onClick={() => {
-                    if (!currentUser.isLoggedIn) {
-                      onOpenAuth();
-                    } else {
-                      setShowCheckInForm(true);
-                    }
-                  }}>
-                    Zamelduj się
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => {
+                      if (!currentUser.isLoggedIn) {
+                        onOpenAuth();
+                      } else if (currentUser.dogName) {
+                        onCheckIn(selectedPlace.id, {
+                          dogName: currentUser.dogName,
+                          dogBreed: currentUser.dogBreed || 'Kundelek / Mieszaniec',
+                          dogSize: currentUser.dogSize || 'medium',
+                          dogTemperament: currentUser.dogTemperament || 'friendly',
+                        });
+                      } else {
+                        setShowCheckInForm(true);
+                      }
+                    }}>
+                      Zamelduj się
+                    </button>
+                    {currentUser.isLoggedIn && currentUser.dogName && (
+                      <button 
+                        type="button"
+                        style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        onClick={() => {
+                          setDogName('');
+                          setDogBreed('');
+                          setDogSize('medium');
+                          setDogTemperament('friendly');
+                          setShowCheckInForm(true);
+                        }}
+                      >
+                        Inny pies?
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 

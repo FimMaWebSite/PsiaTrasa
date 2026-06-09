@@ -326,25 +326,30 @@ export const Map: React.FC<MapProps> = ({
     const map = mapRef.current;
     if (!map) return;
 
-    if (selectedPlace) {
-      map.flyTo([selectedPlace.lat, selectedPlace.lng], 15, { animate: true, duration: 1.5 });
-      const marker = itemRefs.current[selectedPlace.id];
-      if (marker && marker instanceof L.Marker) {
-        marker.openPopup();
+    setTimeout(() => {
+      if (!mapRef.current) return;
+      mapRef.current.invalidateSize();
+
+      if (selectedPlace) {
+        mapRef.current.flyTo([selectedPlace.lat, selectedPlace.lng], 15, { animate: true, duration: 1.5 });
+        const marker = itemRefs.current[selectedPlace.id];
+        if (marker && marker instanceof L.Marker) {
+          marker.openPopup();
+        }
+      } else if (selectedAlert) {
+        mapRef.current.flyTo([selectedAlert.lat, selectedAlert.lng], 15, { animate: true, duration: 1.5 });
+        const marker = itemRefs.current[selectedAlert.id];
+        if (marker && marker instanceof L.Marker) {
+          marker.openPopup();
+        }
+      } else if (selectedLostDog) {
+        mapRef.current.flyTo([selectedLostDog.lat, selectedLostDog.lng], 15, { animate: true, duration: 1.5 });
+        const marker = itemRefs.current[selectedLostDog.id];
+        if (marker && marker instanceof L.Marker) {
+          marker.openPopup();
+        }
       }
-    } else if (selectedAlert) {
-      map.flyTo([selectedAlert.lat, selectedAlert.lng], 15, { animate: true, duration: 1.5 });
-      const marker = itemRefs.current[selectedAlert.id];
-      if (marker && marker instanceof L.Marker) {
-        marker.openPopup();
-      }
-    } else if (selectedLostDog) {
-      map.flyTo([selectedLostDog.lat, selectedLostDog.lng], 15, { animate: true, duration: 1.5 });
-      const marker = itemRefs.current[selectedLostDog.id];
-      if (marker && marker instanceof L.Marker) {
-        marker.openPopup();
-      }
-    }
+    }, 300);
   }, [selectedPlace, selectedAlert, selectedLostDog]);
 
   // Center on flyToTarget coordinate (global address searches)

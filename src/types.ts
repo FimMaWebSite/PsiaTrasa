@@ -33,6 +33,7 @@ export interface Place {
   difficulty?: 'easy' | 'medium' | 'hard'; // for routes
   imageUrl?: string;
   createdBy?: string;
+  status?: 'approved' | 'pending' | 'rejected';
 }
 
 export type AlertType = 'glass' | 'wild_animals' | 'poison' | 'other';

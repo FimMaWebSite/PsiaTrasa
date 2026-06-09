@@ -610,6 +610,7 @@ a:hover {
 @media (max-width: 768px) {
   .app-layout {
     flex-direction: column;
+    height: calc(100vh - 56px);
   }
   
   .app-header {
@@ -635,22 +636,39 @@ a:hover {
     border-top: 1px solid var(--border-color);
     transform: translateY(0);
     z-index: 600;
+    transition: transform 0.3s ease, height 0.3s ease;
+  }
+  
+  .app-layout.has-sidebar .map-wrapper {
+    height: 40%;
+    flex: none;
+  }
+  
+  .app-layout.has-sidebar .sidebar {
+    position: relative;
+    height: 60%;
+    transform: none;
   }
   
   .sidebar.closed {
     height: 0;
     transform: translateY(100%);
+    position: absolute;
   }
   
   .map-filters {
     top: auto;
-    bottom: 5rem;
+    bottom: 1.25rem;
     left: 0.5rem;
     right: 0.5rem;
     max-width: calc(100% - 1rem);
     justify-content: center;
     flex-wrap: wrap;
     gap: 0.35rem;
+  }
+  
+  .app-layout.has-sidebar .map-filters {
+    bottom: 0.5rem;
   }
   
   .map-tools {
@@ -661,9 +679,15 @@ a:hover {
   }
 }
 
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar {
+    width: 360px;
+  }
+}
+
 @media (max-width: 480px) {
   .logo-container span {
-    display: none; /* Hide brand text on tiny screens, show icon only */
+    display: none;
   }
   .app-header {
     padding: 0.5rem 0.5rem;

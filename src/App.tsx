@@ -35,6 +35,7 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryTab, setCategoryTab] = useState<'all' | 'enclosure' | 'park' | 'water' | 'route'>('all');
+  const [showPendingPlaces, setShowPendingPlaces] = useState(false);
   const [isCoffeeModalOpen, setIsCoffeeModalOpen] = useState(false);
   const [coffeeCount, setCoffeeCount] = useState(1);
   const [coffeeName, setCoffeeName] = useState('');
@@ -504,7 +505,7 @@ export default function App() {
     setNewPlaceTags([]);
     setClickedCoords(null);
     setActiveCreationType(null);
-    showToast('Miejsce zostało dodane! 🐾');
+    showToast('Miejsce zostało dodane i przekazane do weryfikacji! 🐾', 'info');
   };
 
   const handleAddAlertSubmit = (e: React.FormEvent) => {
@@ -685,7 +686,7 @@ export default function App() {
     setNewRouteTags([]);
     setDrawingPoints([]);
     setIsDrawingRoute(false);
-    showToast('Trasa spacerowa została zapisana! 🥾');
+    showToast('Trasa została zapisana i przekazana do weryfikacji! 🥾', 'info');
   };
 
   const handleFilterToggle = (filter: string) => {
@@ -716,6 +717,26 @@ export default function App() {
     setDonations(list);
     setIsCoffeeSuccess(true);
     showToast(`Dziękujemy ${donor} za postawienie kawki! ☕🐾`);
+  };
+
+  const getFilteredPlaces = () => {
+    let list = places.filter(place => {
+      if (place.status === 'rejected') return false;
+      
+      if (place.status === 'pending') {
+        const isMyPlace = currentUser.isLoggedIn && 
+                          (place.createdBy === currentUser.email || place.createdBy === currentUser.username);
+        return showPendingPlaces || isMyPlace;
+      }
+      
+      return true;
+    });
+
+    if (isFilterMyTracksActive) {
+      list = list.filter(p => p.createdBy && (p.createdBy === currentUser.email || p.createdBy === currentUser.username));
+    }
+
+    return list;
   };
 
   return (
@@ -850,7 +871,7 @@ export default function App() {
       </header>
 
       {/* Main Layout */}
-      <main className="app-layout">
+      <main className={`app-layout ${!!(selectedPlace || selectedAlert || selectedLostDog) ? 'has-sidebar' : ''}`}>
         <div className="map-wrapper">
           {/* Quick Filters */}
           <div className="map-filters">
@@ -872,6 +893,14 @@ export default function App() {
             <button className={`filter-btn ${activeFilters.includes('vet') ? 'active' : ''}`} onClick={() => handleFilterToggle('vet')}>
               🩺 Weterynarze
             </button>
+            <button 
+              className={`filter-btn ${showPendingPlaces ? 'active' : ''}`} 
+              onClick={() => setShowPendingPlaces(!showPendingPlaces)}
+              style={{ borderColor: 'var(--amber-color, #f59e0b)', color: showPendingPlaces ? 'white' : 'var(--text-main)' }}
+              title="Pokaż trasy i punkty dodane przez społeczność czekające na akceptację"
+            >
+              🟡 W weryfikacji
+            </button>
           </div>
 
           {/* Drawing Indicator */}
@@ -889,7 +918,7 @@ export default function App() {
 
           {/* Map Components */}
           <Map 
-            places={isFilterMyTracksActive ? places.filter(p => p.createdBy && (p.createdBy === currentUser.email || p.createdBy === currentUser.username)) : places}
+            places={getFilteredPlaces()}
             alerts={alerts}
             lostDogs={lostDogs}
             selectedPlace={selectedPlace}
@@ -981,7 +1010,7 @@ export default function App() {
           selectedPlace={selectedPlace}
           selectedAlert={selectedAlert}
           selectedLostDog={selectedLostDog}
-          places={isFilterMyTracksActive ? places.filter(p => p.createdBy && (p.createdBy === currentUser.email || p.createdBy === currentUser.username)) : places}
+          places={getFilteredPlaces()}
           alerts={alerts}
           lostDogs={lostDogs}
           currentUser={currentUser}
